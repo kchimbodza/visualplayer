@@ -51,7 +51,7 @@ if [ ! -f "$video_file" ]; then
 fi
 
 script_folder=$(cd "$(dirname "$0")" && pwd)
-report_file="$PWD/spike-report-$(uname -n)-$(date +%Y%m%d-%H%M).txt"
+report_file="$PWD/spike-report-$(uname -n)-$(date +%Y%m%d-%H%M%S).txt"
 
 # Collect information about the system before playing anything.
 {
