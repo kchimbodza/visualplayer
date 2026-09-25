@@ -5,7 +5,7 @@
 -- English, so we can confirm everything is wired up correctly. The
 -- on-screen interface arrives in Phase 2.
 
-local VERSION = "0.1.0-dev"
+local VERSION = "0.1.0"
 
 -- How long the list of screens must stay the same before we report it.
 -- While a window is moved or resized, the compositor can report it
@@ -138,16 +138,29 @@ end
 local screen_settle_timer = nil
 local latest_screen_names = {}
 local screen_changes_while_settling = 0
+local last_reported_screens = nil
 
 local function report_settled_screens()
-    local message = "Screen: " .. table.concat(latest_screen_names, ", ")
-
-    if screen_changes_while_settling > 1 then
-        message = message
-            .. string.format(" (after %d changes while settling)", screen_changes_while_settling)
+    if not is_file_loaded then
+        return
     end
 
+    local screens = table.concat(latest_screen_names, ", ")
+    local change_count = screen_changes_while_settling
     screen_changes_while_settling = 0
+
+    -- Moving a window around and back can settle on the same screens as
+    -- before, which isn't worth reporting again.
+    if screens == last_reported_screens then
+        return
+    end
+    last_reported_screens = screens
+
+    local message = "Screen: " .. screens
+    if change_count > 1 then
+        message = message .. string.format(" (after %d changes while settling)", change_count)
+    end
+
     log_if_changed("screen", message)
 end
 
@@ -170,6 +183,7 @@ local function on_file_loaded()
 
     -- Start fresh for each file, so its details are all logged again.
     last_message_for_topic = {}
+    last_reported_screens = nil
 
     -- mpv only notifies us when a value changes, and some values were
     -- already set before the file finished loading, while we were

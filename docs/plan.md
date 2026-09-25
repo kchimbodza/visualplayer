@@ -387,6 +387,15 @@ The app is architecture-independent (Lua, config, fonts, desktop file), so both 
 | `/usr/share/applications/visual-player.desktop` | desktop entry with video MIME types |
 | `/usr/share/icons/hicolor/scalable/apps/visual-player.svg` | app icon |
 
+### Building locally
+
+While the project is in development, both packages build from the source folder rather than downloading a release:
+
+- **Omarchy:** `cd packaging/arch && makepkg -si`
+- **Nobara:** `./tools/build-rpm.sh`, which creates the source archive `rpmbuild` needs from the latest commit, then builds the RPM. Only committed changes are included.
+
+The version number currently lives in three places that must match: `main.lua`, the PKGBUILD, and the spec.
+
 ### Omarchy (Arch)
 
 `packaging/arch/PKGBUILD`:
@@ -562,10 +571,18 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 
 ### Phase 1 — Skeleton
 
-- [ ] StyLua and luacheck configs added; readability rules from section 11 apply from the first commit.
-- [ ] Repo layout, launcher, shipped config, key bindings, desktop file, placeholder icon.
-- [ ] PKGBUILD and spec file installing the skeleton.
-- [ ] Script loads, observes properties, logs state.
+- [x] StyLua and luacheck configs added; readability rules from section 11 apply from the first commit.
+- [x] Repo layout, launcher, shipped config, key bindings, desktop file, placeholder icon.
+- [ ] PKGBUILD and spec file installing the skeleton, via a shared Makefile.
+- [x] Script loads, observes properties, logs state.
+
+### Phase 1 findings
+
+- **Properties are empty or half-filled before a file finishes loading.** The script ignores changes until `file-loaded`, then reads every value once, since mpv only reports changes and some values were set earlier.
+- **mpv reports the transfer as `auto` until it knows it,** which briefly looked like "SDR" on HDR files. Unknown values are now skipped, not guessed.
+- **Dragging a window between screens fires hundreds of screen changes** (284 in one drag). Anything that reacts to the current screen must wait for it to settle, currently for 1 second.
+- **A window left spanning two screens drops frames** (11 in 55 seconds versus 1 when fully on one screen). This likely explains part of the earlier 240 Hz timing trouble. Idea for later: a gentle hint when the window straddles two screens.
+- **Cycling audio tracks includes "no audio".** The track picker should show this clearly as "Off".
 
 ### Phase 2 — Core controls
 

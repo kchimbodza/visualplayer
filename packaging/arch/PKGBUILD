@@ -1,0 +1,28 @@
+# Maintainer: myviewsontech
+#
+# Builds Visual Player from this source folder, for installing on Arch
+# and Omarchy. From this folder, run:
+#
+#   makepkg -si
+#
+# The AUR version will download a tagged release from GitHub instead of
+# using a local folder. See docs/plan.md, section 10.
+
+pkgname=visual-player
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Media player for HDR video and Dolby Atmos audio, built on mpv"
+arch=('any')
+url="https://github.com/kchimbodza/visualplayer"
+license=('MIT')
+depends=('mpv>=1:0.41' 'hicolor-icon-theme')
+optdepends=('pipewire: detecting audio outputs and Bluetooth codecs (Phase 4)')
+makedepends=('make')
+
+package() {
+    # The source folder is two levels up from this PKGBUILD.
+    cd "$startdir/../.."
+
+    make DESTDIR="$pkgdir" PREFIX=/usr install
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
