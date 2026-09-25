@@ -410,7 +410,7 @@ The app is architecture-independent (Lua, config, fonts, desktop file), so both 
 
 ### Minimum mpv version
 
-Require a recent mpv with Wayland color-management support for HDR output and `begin-vo-dragging` for window moving. Confirm the exact minimum version in Phase 0 against what Nobara and Arch ship.
+**mpv 0.41 or newer.** Confirmed in Phase 0 on Nobara 44, where 0.41 provides HDR output on GNOME and the `begin-vo-dragging` command. Arch typically ships the newest mpv, so Omarchy should meet this too; confirm when running the spike there.
 
 ### Future options
 
@@ -501,12 +501,29 @@ end
 
 ### Phase 0 — Spike (validate the architecture)
 
-- [ ] Confirm mpv versions on Nobara and Omarchy.
-- [ ] Enable HDR in GNOME and Hyprland display settings.
-- [ ] Play an HDR10 sample with plain mpv (`vo=gpu-next`) on both machines; confirm HDR engages via `video-target-params`.
-- [ ] Test TrueHD passthrough to the receiver with `audio-spdif`.
-- [ ] Confirm `display-names` returns connector names on both compositors.
+- [x] Confirm mpv version on Nobara (0.41.0).
+- [ ] Confirm mpv version on Omarchy.
+- [x] Enable HDR in GNOME display settings.
+- [ ] Enable HDR in Hyprland display settings.
+- [x] Nobara: HDR output engages for HDR10, HLG, and Dolby Vision (with and without HDR10 fallback).
+- [ ] Omarchy: same HDR checks.
+- [ ] Test TrueHD, E-AC-3, and DTS-HD passthrough to a receiver with `audio-spdif` (untested: no receiver connected yet).
+- [x] Nobara: `display-names` returns connector names (`eDP-1`).
+- [ ] Omarchy: `display-names` returns connector names.
 - [ ] Draw one test button with the icon font via ASS and confirm click hit-testing works.
+
+### Phase 0 findings (Nobara)
+
+Tested on Nobara 44 GNOME (Wayland), kernel 7.2, mpv 0.41.0, on a hybrid laptop with an NVIDIA RTX 4050 and an AMD Radeon 890M. Test files: Dolby Art, CableLabs Life Untouched, 7ENSATION Amazing Jellyfish 8, Dolby Blocks, and Barco Stinger Bees.
+
+- **HDR works on GNOME.** mpv sent a PQ signal with BT.2020 primaries for every HDR file, and pictures looked correct, including Dolby Vision profile 5 (Blocks) with no HDR10 fallback. The biggest architectural risk is cleared.
+- **Hardware decoding works** through Vulkan video decoding (`hwdec-current = vulkan`) for 4K HEVC 10-bit.
+- **SDR content is sent inside an HDR signal when GNOME's HDR mode is on**, and it looked normal. So the info panel must label the file's format from `video-params` (the source), never from `video-target-params` (the output), or every SDR file would read as HDR.
+- **mpv can't see PipeWire downmixing.** On stereo laptop speakers, `audio-out-params` still reported 7.1 because PipeWire downmixes after mpv. The "Stereo downmix" warning must come from the PipeWire sink's channel count (via `pw-dump`), not from mpv.
+- **Friendlier HDMI names are available.** One device list names the port "Radeon High Definition Audio Controller Digital Stereo (HDMI 4)", while ALSA reports the connected monitor's own name ("PX277OLEDMAX") from its EDID/ELD data. The output popup should prefer the monitor or receiver's name.
+- **Dolby Vision isn't visible in `video-params`**, which only describes the HDR10 base layer. Detect Dolby Vision from the track metadata in `track-list` instead (Phase 3).
+- **A few dropped frames at startup are normal** (2 on the first file). Only a count that keeps rising should turn the status line amber.
+- **Hybrid graphics:** decoding worked, but the info panel's Decode row should eventually show which GPU is in use, since that can differ between the laptop screen and external monitors.
 
 ### Phase 1 — Skeleton
 
@@ -559,14 +576,16 @@ end
 
 | Case | Nobara (GNOME) | Omarchy (Hyprland) |
 |---|---|---|
-| HDR10 file, HDR display | | |
+| HDR10 file, HDR display | Pass | |
 | HDR10 file, SDR display (tone mapping) | | |
-| Dolby Vision profile 5 and 8 | | |
+| HLG file, HDR display | Pass | |
+| SDR file, HDR display (looks normal) | Pass | |
+| Dolby Vision profile 5 and 8 | Pass | |
 | 4K AV1 hardware decode | | |
 | TrueHD Atmos passthrough over HDMI | | |
 | Bluetooth headphones (codec shown, downmix shown) | | |
 | USB-C DisplayPort monitor | | |
-| Built-in display and speakers | | |
+| Built-in display and speakers | Pass | |
 | Device hot-plug during playback | | |
 | Window drag, resize, fullscreen | | |
 | Audio-only file (rows hidden) | | |
@@ -576,10 +595,11 @@ end
 
 ## 14. Risks and open questions
 
-- **HDR on GNOME:** GNOME's HDR support is newer than KDE's or Hyprland's. Phase 0 must confirm it works with mpv on Nobara's GNOME version.
+- **HDR on GNOME:** resolved. Confirmed working on Nobara 44 with mpv 0.41 in Phase 0.
 - **Passthrough through PipeWire:** can be device-dependent. Keep an ALSA direct-output option in settings as a fallback.
 - **Dolby Vision:** mpv handles profiles 5 and 8 well; profile 7 (dual-layer) support is limited. Label accurately rather than overpromise.
 - **OSD UI complexity:** building menus with ASS is more manual than a GUI toolkit. Mitigate by studying uosc's rendering and hit-testing approach.
 - **USB-C detection:** heuristic only. Fall back to "DisplayPort" when uncertain.
-- **NVIDIA:** confirm hardware decoding (NVDEC or VA-API via nvidia-vaapi-driver) on whichever machine has an NVIDIA GPU.
+- **Hybrid graphics (NVIDIA plus AMD):** Vulkan decoding works on Nobara. Still to test: playback on an external monitor wired to the NVIDIA GPU, where a different GPU may handle decoding.
+- **Passthrough is untested** until a receiver or soundbar is connected. Sending Atmos to a monitor that can't decode it produces silence or noise, so the app should only offer passthrough for devices that report support for those formats.
 - **Name:** "Visual Player" is a common phrase, so search visibility will be limited. Before publishing, check the AUR, Fedora packages, and Flathub for existing `visual-player` or `vplay` packages or commands.
