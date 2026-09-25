@@ -16,3 +16,4 @@ samples/
 .DS_Store
 .vscode/
 .idea/
+spike-report-*.txt
