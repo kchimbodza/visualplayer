@@ -1,0 +1,18 @@
+# Arch packaging build output
+packaging/arch/pkg/
+packaging/arch/src/
+*.pkg.tar.zst
+
+# Fedora packaging build output
+*.rpm
+rpmbuild/
+
+# Test media stays local; it's large and often copyrighted
+samples/
+
+# Editor and system clutter
+*.swp
+*~
+.DS_Store
+.vscode/
+.idea/
