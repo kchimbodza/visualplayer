@@ -410,7 +410,7 @@ The app is architecture-independent (Lua, config, fonts, desktop file), so both 
 
 ### Minimum mpv version
 
-**mpv 0.41 or newer.** Confirmed in Phase 0 on Nobara 44, where 0.41 provides HDR output on GNOME and the `begin-vo-dragging` command. Arch typically ships the newest mpv, so Omarchy should meet this too; confirm when running the spike there.
+**mpv 0.41 or newer.** Confirmed in Phase 0 on Nobara 44, where 0.41 provides HDR output on GNOME and the `begin-vo-dragging` command. Omarchy (Arch) also ships 0.41, confirmed in Phase 0.
 
 ### Future options
 
@@ -502,14 +502,14 @@ end
 ### Phase 0 — Spike (validate the architecture)
 
 - [x] Confirm mpv version on Nobara (0.41.0).
-- [ ] Confirm mpv version on Omarchy.
+- [x] Confirm mpv version on Omarchy (0.41.0).
 - [x] Enable HDR in GNOME display settings.
-- [ ] Enable HDR in Hyprland display settings.
+- [x] Hyprland HDR: not applicable, the Framework 13 screen is SDR. Test later with an external HDR monitor.
 - [x] Nobara: HDR output engages for HDR10, HLG, and Dolby Vision (with and without HDR10 fallback).
-- [ ] Omarchy: same HDR checks.
+- [x] Omarchy: HDR files tone-map to SDR correctly and look great, including Dolby Vision profile 5.
 - [ ] Test TrueHD, E-AC-3, and DTS-HD passthrough to a receiver with `audio-spdif` (untested: no receiver connected yet).
 - [x] Nobara: `display-names` returns connector names (`eDP-1`).
-- [ ] Omarchy: `display-names` returns connector names.
+- [x] Omarchy: `display-names` returns connector names (`eDP-1`).
 - [ ] Draw one test button with the icon font via ASS and confirm click hit-testing works.
 
 ### Phase 0 findings (Nobara)
@@ -524,6 +524,15 @@ Tested on Nobara 44 GNOME (Wayland), kernel 7.2, mpv 0.41.0, on a hybrid laptop 
 - **Dolby Vision isn't visible in `video-params`**, which only describes the HDR10 base layer. Detect Dolby Vision from the track metadata in `track-list` instead (Phase 3).
 - **A few dropped frames at startup are normal** (2 on the first file). Only a count that keeps rising should turn the status line amber.
 - **Hybrid graphics:** decoding worked, but the info panel's Decode row should eventually show which GPU is in use, since that can differ between the laptop screen and external monitors.
+
+### Phase 0 findings (Omarchy)
+
+Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 with an SDR screen, using the same five test files.
+
+- **Tone mapping works well.** With no HDR display, mpv converted every HDR file to SDR, and the picture looked excellent. Dolby Vision profile 5 (Blocks) had correct colors, so Dolby Vision is handled properly even without HDR output.
+- **Hardware decoding works, through VA-API** rather than Vulkan as on Nobara. The player must not assume a particular decoding method; the info panel should report whatever `hwdec-current` says.
+- **Display names and window dragging work under Hyprland**, so the drag-to-move title bar works on both desktops.
+- **"HDR output active: NO" is the correct result on an SDR screen.** In the app, this should read as "Tone mapped to SDR", not as a warning.
 
 ### Phase 1 — Skeleton
 
@@ -576,16 +585,17 @@ Tested on Nobara 44 GNOME (Wayland), kernel 7.2, mpv 0.41.0, on a hybrid laptop 
 
 | Case | Nobara (GNOME) | Omarchy (Hyprland) |
 |---|---|---|
-| HDR10 file, HDR display | Pass | |
-| HDR10 file, SDR display (tone mapping) | | |
-| HLG file, HDR display | Pass | |
-| SDR file, HDR display (looks normal) | Pass | |
-| Dolby Vision profile 5 and 8 | Pass | |
+| HDR10 file, HDR display | Pass | Not available (SDR screen) |
+| HDR10 file, SDR display (tone mapping) | | Pass |
+| HLG file, HDR display | Pass | Not available (SDR screen) |
+| HLG file, SDR display (tone mapping) | | Pass |
+| SDR file, HDR display (looks normal) | Pass | Not available (SDR screen) |
+| Dolby Vision profile 5 and 8 | Pass | Pass |
 | 4K AV1 hardware decode | | |
 | TrueHD Atmos passthrough over HDMI | | |
 | Bluetooth headphones (codec shown, downmix shown) | | |
 | USB-C DisplayPort monitor | | |
-| Built-in display and speakers | Pass | |
+| Built-in display and speakers | Pass | Pass |
 | Device hot-plug during playback | | |
 | Window drag, resize, fullscreen | | |
 | Audio-only file (rows hidden) | | |
