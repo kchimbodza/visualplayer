@@ -314,6 +314,8 @@ Almost all UI data comes from observed mpv properties.
 | Display connector | `display-names` |
 | Display refresh | `display-fps` |
 | HDR output active | `video-target-params` |
+| Frame timing health | `vo-delayed-frame-count`, `mistimed-frame-count`, `vsync-jitter` |
+| Measured vs specified refresh | `estimated-display-fps`, `display-fps` |
 
 ---
 
@@ -323,8 +325,8 @@ Almost all UI data comes from observed mpv properties.
 
 1. `audio-device-list` gives PipeWire device names and descriptions.
 2. Run `pw-dump` via `mp.command_native({name = "subprocess", ...})` when the device list changes (not on a timer) to read each node's `device.bus` (`bluetooth`, `pci`, `usb`) and, for Bluetooth, `api.bluez5.codec` (SBC, AAC, aptX, LDAC).
-3. Classify: `bluetooth` → Bluetooth, node name containing `hdmi` → HDMI, `usb` → USB, otherwise built-in.
-4. Fall back to name matching (`bluez`, `hdmi`) if `pw-dump` is unavailable.
+3. Classify: `bluetooth` → Bluetooth, `usb` → USB audio, a digital display output → match it to the display connector (`HDMI-A-*` → HDMI, `DP-*` → DisplayPort or USB-C), otherwise built-in. Linux audio labels DisplayPort audio as "HDMI", so never use the audio name to decide the connection type.
+4. Fall back to name matching (`bluez` for Bluetooth) if `pw-dump` is unavailable.
 
 ### Display
 
@@ -344,6 +346,11 @@ hwdec=auto-safe
 target-colorspace-hint=yes
 tone-mapping=auto
 
+# Time video to the audio clock (mpv's default). Phase 0 showed
+# display-resample badly hurts smoothness on screens with unsteady refresh
+# timing: 237 dropped frames in 59 seconds versus 1 in 74 seconds.
+video-sync=audio
+
 # audio
 audio-channels=auto
 # audio-spdif is set per device by the output menu, not globally
@@ -354,7 +361,7 @@ save-position-on-quit=yes
 osd-bar=no
 ```
 
-Passthrough: when the user selects an HDMI device, set `audio-spdif=ac3,eac3,dts,dts-hd,truehd`. For Bluetooth and built-in devices, clear it. Persist per-device choices in `~/.config/visual-player/devices.json`.
+Passthrough: when the user selects a receiver or other device that supports it, set `audio-spdif=ac3,eac3,dts,dts-hd,truehd`. For Bluetooth and built-in devices, clear it. Persist per-device choices in `~/.config/visual-player/devices.json`.
 
 ---
 
@@ -371,7 +378,7 @@ Passthrough: when the user selects an HDMI device, set `audio-spdif=ac3,eac3,dts
 | A | Cycle audio tracks |
 | O | Open output popup |
 | R | Rotate video |
-| F | Fullscreen |
+| F, F11, Alt+Enter, double-click | Fullscreen |
 | Esc | Close popup, then exit fullscreen |
 
 ---
@@ -510,7 +517,7 @@ end
 - [ ] Test TrueHD, E-AC-3, and DTS-HD passthrough to a receiver with `audio-spdif` (untested: no receiver connected yet).
 - [x] Nobara: `display-names` returns connector names (`eDP-1`).
 - [x] Omarchy: `display-names` returns connector names (`eDP-1`).
-- [ ] Draw one test button with the icon font via ASS and confirm click hit-testing works.
+- [x] Draw a test button via ASS and confirm hover, click hit-testing, and window dragging work on both machines. (Icon font deferred to Phase 2.)
 
 ### Phase 0 findings (Nobara)
 
@@ -524,6 +531,34 @@ Tested on Nobara 44 GNOME (Wayland), kernel 7.2, mpv 0.41.0, on a hybrid laptop 
 - **Dolby Vision isn't visible in `video-params`**, which only describes the HDR10 base layer. Detect Dolby Vision from the track metadata in `track-list` instead (Phase 3).
 - **A few dropped frames at startup are normal** (2 on the first file). Only a count that keeps rising should turn the status line amber.
 - **Hybrid graphics:** decoding worked, but the info panel's Decode row should eventually show which GPU is in use, since that can differ between the laptop screen and external monitors.
+
+### Phase 0 findings (button test, both machines)
+
+- **Drawing, hover, clicks, and dragging all work** on GNOME and Hyprland, using an `ass-events` overlay sized to `osd-dimensions` and mouse coordinates from `mouse-pos`. Hover lined up exactly with the pointer, so no scaling correction is needed.
+- **Dolby Vision profile 7 plays as its HDR10 base layer.** mpv reports that the enhancement layer isn't supported. The info panel should say "Dolby Vision (HDR10 base layer)" for profile 7 files rather than claiming full Dolby Vision.
+- **Files often carry several audio tracks** (Art has TrueHD 7.1, E-AC-3 7.1, and AC-3 5.1). Idea for Phase 4: when the current output can't pass the default track through, offer or automatically pick the best track it can.
+- **People expect Alt+Enter and double-click for fullscreen**, not only `f`.
+
+### Phase 0 findings (frame timing, Nobara)
+
+Investigated dropped frames on Art (4K, 60 fps) using mpv's stats overlay.
+
+| Screen | Timing mode | Output drops | VSync jitter |
+|---|---|---|---|
+| Built-in 60 Hz (eDP-1) | default | 17 in 40 s | about 0.15 |
+| Built-in 60 Hz (eDP-1) | display-resample | 17 in 74 s | 0.147 |
+| Built-in 60 Hz (eDP-1) | display-resample, fast profile | 19 in 37 s | not measured |
+| External 240 Hz OLED (DP-3), VRR off | display-resample | 237 in 59 s | 0.546 |
+| External 240 Hz OLED (DP-3) | default | 1 in 74 s | not applicable |
+
+- **The GPU is not the bottleneck.** Frames rendered in 1.3 to 3.6 ms on average, well under the time available, decoding had zero drops, and the lighter `fast` profile didn't help.
+- **Drops come from unsteady refresh timing** reported by the compositor. The 240 Hz monitor measured about 219 Hz instead of 240, with high jitter even with VRR off.
+- **Decision: use mpv's default timing (`video-sync=audio`).** `display-resample` depends on steady refresh timing and made things far worse where timing was unsteady. Possible later improvement: switch to `display-resample` automatically only when jitter is low.
+- **The status line can explain drops accurately.** High render times mean "GPU can't keep up"; low render times with rising mistimed or delayed counts mean "screen timing is uneven". The plain-language message should say which.
+- **The built-in 60 Hz panel drops about one frame every two seconds** on 60 fps content. That's a trait of the panel's timing, not the player.
+- **DisplayPort audio is named "HDMI" by Linux audio.** The PX277OLEDMAX on `DP-3` appears as an "HDMI" audio device. The output chip must take the connection type from the display connector, never from the audio device name.
+- **HDR works on the external monitor too** (PQ output on DP-3).
+- **People also press F11 for fullscreen.**
 
 ### Phase 0 findings (Omarchy)
 
@@ -595,6 +630,7 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 | TrueHD Atmos passthrough over HDMI | | |
 | Bluetooth headphones (codec shown, downmix shown) | | |
 | USB-C DisplayPort monitor | | |
+| External 240 Hz HDR monitor (DP) | Pass (HDR, 1 drop in 74 s) | |
 | Built-in display and speakers | Pass | Pass |
 | Device hot-plug during playback | | |
 | Window drag, resize, fullscreen | | |
@@ -607,7 +643,7 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 
 - **HDR on GNOME:** resolved. Confirmed working on Nobara 44 with mpv 0.41 in Phase 0.
 - **Passthrough through PipeWire:** can be device-dependent. Keep an ALSA direct-output option in settings as a fallback.
-- **Dolby Vision:** mpv handles profiles 5 and 8 well; profile 7 (dual-layer) support is limited. Label accurately rather than overpromise.
+- **Dolby Vision:** mpv handles profiles 5 and 8 well. Profile 7 (dual-layer) plays its HDR10 base layer only, confirmed in Phase 0. Label accurately rather than overpromise.
 - **OSD UI complexity:** building menus with ASS is more manual than a GUI toolkit. Mitigate by studying uosc's rendering and hit-testing approach.
 - **USB-C detection:** heuristic only. Fall back to "DisplayPort" when uncertain.
 - **Hybrid graphics (NVIDIA plus AMD):** Vulkan decoding works on Nobara. Still to test: playback on an external monitor wired to the NVIDIA GPU, where a different GPU may handle decoding.
