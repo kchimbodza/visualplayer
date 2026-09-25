@@ -100,24 +100,13 @@ visual-player/
 
 ### Launcher
 
-`bin/vplay` runs mpv with the app's config directory so it doesn't interfere with the user's own mpv setup:
+`bin/vplay` starts mpv with Visual Player's files. It works both when installed (files in `/usr/share/visual-player`) and when run straight from the source folder, which makes development easy.
 
-```sh
-#!/bin/sh
-exec mpv --config-dir="${XDG_CONFIG_HOME:-$HOME/.config}/visual-player" \
-         --include=/usr/share/visual-player/mpv.conf \
-         --input-conf=/usr/share/visual-player/input.conf \
-         --script=/usr/share/visual-player/scripts/visual-player \
-         --osc=no --border=no \
-         --wayland-app-id=visual-player \
-         --title='${media-title} — Visual Player' \
-         --player-operation-mode=pseudo-gui \
-         "$@"
-```
+It passes `--no-config` so mpv doesn't load any config files on its own, then loads them explicitly in a fixed order: Visual Player's defaults (`config/mpv.conf`), then the user's personal settings (`~/.config/visual-player/mpv.conf`, created empty on first run). Loading them in this order guarantees personal settings always win. A plain `--include` of the defaults would have done the opposite, since command-line options override config files.
 
-User overrides live in `~/.config/visual-player/mpv.conf`, loaded after the shipped defaults.
+Interface options such as `osc` and `border` live in `config/mpv.conf` rather than on the command line, so they can be changed like any other setting. `--wayland-app-id=visual-player` stays on the command line because it must always match the desktop entry.
 
-`--wayland-app-id` must match the desktop entry's name (`visual-player.desktop`, with `StartupWMClass=visual-player`) so GNOME and Hyprland show the right icon and name instead of mpv's.
+The window title is set in `config/mpv.conf` as `${media-title} — Visual Player`.
 
 ---
 
@@ -392,9 +381,11 @@ The app is architecture-independent (Lua, config, fonts, desktop file), so both 
 | Path | Contents |
 |---|---|
 | `/usr/bin/vplay` | launcher |
-| `/usr/share/visual-player/` | `mpv.conf`, `input.conf`, `scripts/`, `fonts/` |
+| `/usr/share/visual-player/config/` | `mpv.conf`, `input.conf` |
+| `/usr/share/visual-player/scripts/visual-player/` | the Lua script (`main.lua` and modules) |
+| `/usr/share/visual-player/fonts/` | icon font (from Phase 2) |
 | `/usr/share/applications/visual-player.desktop` | desktop entry with video MIME types |
-| `/usr/share/icons/hicolor/*/apps/visual-player.png` | app icons |
+| `/usr/share/icons/hicolor/scalable/apps/visual-player.svg` | app icon |
 
 ### Omarchy (Arch)
 
@@ -572,7 +563,7 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 ### Phase 1 — Skeleton
 
 - [ ] StyLua and luacheck configs added; readability rules from section 11 apply from the first commit.
-- [ ] Repo layout, launcher, shipped config, desktop file.
+- [ ] Repo layout, launcher, shipped config, key bindings, desktop file, placeholder icon.
 - [ ] PKGBUILD and spec file installing the skeleton.
 - [ ] Script loads, observes properties, logs state.
 

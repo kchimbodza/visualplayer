@@ -1,0 +1,57 @@
+#!/bin/sh
+# Starts Visual Player.
+#
+# Visual Player runs inside the mpv already installed on the system. This
+# launcher points mpv at Visual Player's own settings, key bindings, and
+# script, and keeps it separate from any personal mpv setup in ~/.config/mpv.
+#
+# Usage:
+#   vplay [FILE_OR_URL ...]
+
+set -eu
+
+# Work out where Visual Player's files are. When installed, this script is
+# in /usr/bin and the files are in /usr/share/visual-player. When run from
+# the source folder, the files sit next to the bin folder.
+launcher_folder=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+
+if [ -d "$launcher_folder/../share/visual-player" ]; then
+    app_folder=$(cd "$launcher_folder/../share/visual-player" && pwd)
+else
+    app_folder=$(cd "$launcher_folder/.." && pwd)
+fi
+
+# Personal settings live in their own folder, so they never mix with
+# regular mpv's settings.
+user_folder="${XDG_CONFIG_HOME:-$HOME/.config}/visual-player"
+user_settings="$user_folder/mpv.conf"
+
+# Create an empty personal settings file the first time, so there's an
+# obvious place to put overrides.
+if [ ! -f "$user_settings" ]; then
+    mkdir -p "$user_folder"
+    cat > "$user_settings" << 'SETTINGS'
+# Your personal Visual Player settings.
+#
+# Anything here overrides Visual Player's defaults. Use the same format as
+# mpv.conf, for example:
+#   volume=80
+#   sub-auto=fuzzy
+SETTINGS
+fi
+
+# --no-config stops mpv from loading config files automatically. We then
+# load them ourselves in a fixed order: Visual Player's defaults first,
+# then personal settings, so personal settings always win.
+#
+# --wayland-app-id must match the desktop entry name, so the dock and task
+# switcher show Visual Player's name and icon instead of mpv's.
+exec mpv \
+    --no-config \
+    --config-dir="$user_folder" \
+    --include="$app_folder/config/mpv.conf" \
+    --include="$user_settings" \
+    --input-conf="$app_folder/config/input.conf" \
+    --script="$app_folder/scripts/visual-player" \
+    --wayland-app-id=visual-player \
+    "$@"
