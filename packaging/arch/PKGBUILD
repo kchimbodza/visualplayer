@@ -15,8 +15,9 @@ pkgdesc="Media player for HDR video and Dolby Atmos audio, built on mpv"
 arch=('any')
 url="https://github.com/kchimbodza/visualplayer"
 license=('MIT')
-depends=('mpv>=1:0.41' 'hicolor-icon-theme')
-optdepends=('pipewire: detecting audio outputs and Bluetooth codecs (Phase 4)')
+# pipewire gives pw-dump, for detecting outputs, and libpulse gives
+# pactl, for switching the system's output.
+depends=('mpv>=1:0.41' 'hicolor-icon-theme' 'pipewire' 'libpulse')
 makedepends=('make')
 
 package() {

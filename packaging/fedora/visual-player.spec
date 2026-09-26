@@ -20,6 +20,10 @@ BuildRequires:  make
 BuildRequires:  desktop-file-utils
 Requires:       mpv >= 0.41
 Requires:       hicolor-icon-theme
+# pw-dump, for detecting outputs, and pactl, for switching the system's
+# output.
+Requires:       pipewire-utils
+Requires:       pulseaudio-utils
 # pw-dump, used from Phase 4 to detect audio outputs and Bluetooth codecs.
 Recommends:     pipewire-utils
 
@@ -57,6 +61,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 - The info button also shows the format badges
 - mpv's own messages no longer appear for audio tracks, seeking, and
   volume
+- Requires pw-dump and pactl, which Visual Player now relies on
 
 * Sat Sep 26 2026 myviewsontech - 0.6.1-1
 - Opening from the app launcher shows a window instead of quitting, with
