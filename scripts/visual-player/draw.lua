@@ -37,10 +37,20 @@ local function to_ass_color(hex_color)
     return "&H" .. blue .. green .. red .. "&"
 end
 
+-- How visible everything drawn right now should be, from 0 to 1. Every
+-- shape, text, and icon is multiplied by this, which is how the whole
+-- interface fades in and out together. See draw.set_overall_opacity().
+local overall_opacity = 1
+
+-- Sets how visible everything drawn from now on should be, from 0 to 1.
+function draw.set_overall_opacity(opacity)
+    overall_opacity = opacity
+end
+
 -- Turns an opacity from 0 (invisible) to 1 (solid) into ASS's
 -- transparency, which runs the other way: 00 is solid, FF is invisible.
 local function to_ass_transparency(opacity)
-    local transparency = round((1 - opacity) * 255)
+    local transparency = round((1 - opacity * overall_opacity) * 255)
     return string.format("&H%02X&", transparency)
 end
 

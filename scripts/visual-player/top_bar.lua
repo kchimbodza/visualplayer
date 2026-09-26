@@ -12,6 +12,7 @@ local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
 local style = require("style")
+local visibility = require("visibility")
 
 local top_bar = {}
 
@@ -53,7 +54,6 @@ local CLOCK_CHECK_SECONDS = 5
 
 local canvas = draw.create_canvas()
 
-local is_visible = false
 local hovered_button_name = nil
 
 local title_text = ""
@@ -308,10 +308,12 @@ local function add_window_buttons(buttons)
 end
 
 local function render()
-    if not is_visible or not screen.is_ready() then
+    if not visibility.is_shown() or not screen.is_ready() then
         canvas:clear()
         return
     end
+
+    draw.set_overall_opacity(visibility.opacity())
 
     local layout = calculate_layout()
 
@@ -362,16 +364,19 @@ local clicks = click_area.create("top-bar", {
 local function on_pointer_moved()
     local layout = calculate_layout()
 
-    local should_be_visible = pointer.is_over_window
     local now_hovered = find_hovered_button(layout)
-
-    if should_be_visible ~= is_visible or now_hovered ~= hovered_button_name then
-        is_visible = should_be_visible
+    if now_hovered ~= hovered_button_name then
         hovered_button_name = now_hovered
         redraw.request()
     end
 
-    clicks:update(pointer.is_inside(layout.bar))
+    -- Hidden controls don't take clicks.
+    clicks:update(visibility.is_shown() and pointer.is_inside(layout.bar))
+end
+
+-- Keeps the controls from hiding while the pointer rests on the bar.
+local function is_pointer_over_bar()
+    return pointer.is_inside(calculate_layout().bar)
 end
 
 local function on_title_changed()
@@ -399,6 +404,7 @@ function top_bar.start()
     redraw.register(render)
     screen.on_change(redraw.request)
     pointer.on_move(on_pointer_moved)
+    visibility.keep_shown_while(is_pointer_over_bar)
 
     mp.observe_property("media-title", "string", on_title_changed)
     mp.observe_property("chapter", "number", on_chapter_changed)

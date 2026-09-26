@@ -601,8 +601,8 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - [x] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Smallest window size of 240p (`window_size.lua`). Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
 - [x] Step 3: playback row (`playback_row.lua`) inside the bottom area (`bottom_controls.lua`), with shared click handling (`click_area.lua`) and shared colors (`style.lua`). mpv's own controls turned off (`osc=no`).
 - [x] Step 4: seek bar (`seek_bar.lua`) with chapter sections, scrubber, click and drag seeking (fast keyframe seeks while dragging, an exact seek on release, at most 20 a second), and a hover preview of the time and chapter.
-- [ ] Step 5: tools row (`tools_row.lua`): subtitles, menu, info, rotate, settings, output chip, and volume with a slider that expands on hover. Menu, settings, and the output chip show a note until their panels arrive; info shows mpv's stats overlay until Phase 3.
-- [ ] Step 6: auto-hide, and switch to `osc=no` and `border=no`.
+- [x] Step 5: tools row (`tools_row.lua`): subtitles, menu, info, rotate, settings, output chip, and volume with a slider that expands on hover. Menu, settings, and the output chip show a note until their panels arrive; info shows mpv's stats overlay until Phase 3.
+- [ ] Step 6: auto-hide and fade (`visibility.lua`), `border=no`, pointer hiding in step with the controls, temporary test card removed. Version 0.2.0.
 
 ### Phase 2 findings
 

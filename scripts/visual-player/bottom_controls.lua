@@ -18,6 +18,7 @@ local screen = require("screen")
 local seek_bar = require("seek_bar")
 local style = require("style")
 local tools_row = require("tools_row")
+local visibility = require("visibility")
 
 local bottom_controls = {}
 
@@ -56,9 +57,10 @@ local canvas = draw.create_canvas()
 -- does. So it lives on its own layer underneath, and is left alone while
 -- the controls on top redraw, for example while dragging the seek bar.
 local background_canvas = draw.create_canvas({ layer = -1 })
-local background_drawn_for_size = nil
 
-local is_visible = false
+-- The window size and fade level the background was last drawn for.
+local background_drawn_for = nil
+
 local hovered_control_name = nil
 
 -- Where subtitles sit when the controls are hidden, as a percentage of
@@ -233,22 +235,22 @@ local function add_background()
     }))
 end
 
--- Redraws the background only if the window size has changed since it
--- was last drawn.
+-- Redraws the background only if the window size or the fade level has
+-- changed since it was last drawn.
 local function update_background()
-    local size = screen.width .. "x" .. screen.height
-    if size == background_drawn_for_size then
+    local drawn_for = screen.width .. "x" .. screen.height .. " at " .. visibility.opacity()
+    if drawn_for == background_drawn_for then
         return
     end
 
     add_background()
     background_canvas:show(screen.width, screen.height)
-    background_drawn_for_size = size
+    background_drawn_for = drawn_for
 end
 
 local function hide_background()
     background_canvas:clear()
-    background_drawn_for_size = nil
+    background_drawn_for = nil
 end
 
 -- Icon-only controls get a round highlight; wider ones with a label get
@@ -343,13 +345,15 @@ local function put_subtitles_back()
 end
 
 local function render()
-    if not is_visible or not screen.is_ready() then
+    if not visibility.is_shown() or not screen.is_ready() then
         canvas:clear()
         hide_background()
         seek_bar.forget_drawn_area()
         put_subtitles_back()
         return
     end
+
+    draw.set_overall_opacity(visibility.opacity())
 
     local layout = calculate_layout()
 
@@ -435,22 +439,24 @@ local function on_pointer_moved()
 
     local layout = calculate_layout()
 
-    local should_be_visible = pointer.is_over_window
     local now_hovered = find_hovered_control(layout)
     local seek_bar_changed = seek_bar.update_hover(layout.seek_bar_area)
     local volume_changed = tools_row.set_volume_expanded(is_pointer_over_volume(layout))
 
-    if should_be_visible ~= is_visible
-        or now_hovered ~= hovered_control_name
-        or seek_bar_changed
-        or volume_changed
-    then
-        is_visible = should_be_visible
+    if now_hovered ~= hovered_control_name or seek_bar_changed or volume_changed then
         hovered_control_name = now_hovered
         redraw.request()
     end
 
-    clicks:update(pointer.is_inside(layout.controls_area) or is_dragging_anything())
+    -- Hidden controls don't take clicks.
+    local is_pointer_over_controls = pointer.is_inside(layout.controls_area)
+    clicks:update(visibility.is_shown() and is_pointer_over_controls)
+end
+
+-- Keeps the controls from hiding while the pointer rests on them, or
+-- while something is being dragged.
+local function should_stay_shown()
+    return is_dragging_anything() or pointer.is_inside(calculate_layout().controls_area)
 end
 
 function bottom_controls.start()
@@ -460,6 +466,7 @@ function bottom_controls.start()
     redraw.register(render)
     screen.on_change(redraw.request)
     pointer.on_move(on_pointer_moved)
+    visibility.keep_shown_while(should_stay_shown)
     playback_row.start()
     seek_bar.start()
     tools_row.start()
