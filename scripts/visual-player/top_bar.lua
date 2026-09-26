@@ -8,6 +8,7 @@
 
 local click_area = require("click_area")
 local draw = require("draw")
+local picture_in_picture = require("picture_in_picture")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -315,7 +316,9 @@ local function add_window_buttons(buttons)
 end
 
 local function render()
-    if not visibility.is_shown() or not screen.is_ready() then
+    -- Picture-in-picture has its own minimal controls instead.
+    local is_hidden = not visibility.is_shown() or picture_in_picture.is_on()
+    if is_hidden or not screen.is_ready() then
         canvas:clear()
         return
     end
@@ -378,10 +381,13 @@ local function on_pointer_moved()
     end
 
     -- Hidden controls don't take clicks.
-    local is_over_bar = visibility.is_shown() and pointer.is_inside(layout.bar)
+    local is_over_bar = visibility.is_shown()
+        and not picture_in_picture.is_on()
+        and pointer.is_inside(layout.bar)
     clicks:update(is_over_bar)
 
-    if is_over_bar ~= is_window_dragging_on then
+    -- In picture-in-picture, picture_in_picture.lua looks after it.
+    if is_over_bar ~= is_window_dragging_on and not picture_in_picture.is_on() then
         mp.set_property_bool("window-dragging", is_over_bar)
         is_window_dragging_on = is_over_bar
     end

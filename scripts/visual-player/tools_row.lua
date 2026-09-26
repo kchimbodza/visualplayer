@@ -16,6 +16,7 @@ local info_panel = require("info_panel")
 local menus = require("menus")
 local settings_menu = require("settings_menu")
 local output_popup = require("output_popup")
+local picture_in_picture = require("picture_in_picture")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -254,6 +255,12 @@ function tools_row.get_controls()
             },
             info_control(),
             rotate_control(),
+            {
+                name = "picture-in-picture",
+                icon = "picture-in-picture",
+                look = "normal",
+                action = picture_in_picture.toggle,
+            },
             {
                 name = "settings",
                 icon = "settings",

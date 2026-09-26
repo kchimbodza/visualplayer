@@ -14,6 +14,7 @@ local draw = require("draw")
 local menus = require("menus")
 local output_popup = require("output_popup")
 local playback_row = require("playback_row")
+local picture_in_picture = require("picture_in_picture")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -348,7 +349,9 @@ local function put_subtitles_back()
 end
 
 local function render()
-    if not visibility.is_shown() or not screen.is_ready() then
+    -- Picture-in-picture has its own minimal controls instead.
+    local is_hidden = not visibility.is_shown() or picture_in_picture.is_on()
+    if is_hidden or not screen.is_ready() then
         canvas:clear()
         hide_background()
         seek_bar.forget_drawn_area()
@@ -462,7 +465,12 @@ local function on_pointer_moved()
     -- anywhere outside it closes it).
     local is_pointer_over_controls = pointer.is_inside(layout.controls_area)
     local is_popup_open = output_popup.is_open() or menus.is_any_open() or settings_menu.is_open()
-    clicks:update(visibility.is_shown() and is_pointer_over_controls and not is_popup_open)
+    clicks:update(
+        visibility.is_shown()
+            and is_pointer_over_controls
+            and not is_popup_open
+            and not picture_in_picture.is_on()
+    )
 end
 
 -- Keeps the controls from hiding while the pointer rests on them, or

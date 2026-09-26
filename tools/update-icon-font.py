@@ -46,6 +46,8 @@ NEEDED_ICONS = [
     "list",
     "info-circle",
     "rotate-clockwise",
+    "picture-in-picture",
+    "picture-in-picture-off",
     "settings",
     "volume",
     "volume-2",
