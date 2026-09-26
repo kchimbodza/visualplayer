@@ -12,6 +12,7 @@
 -- phases, so for now they show a short note saying when.
 
 local draw = require("draw")
+local info_panel = require("info_panel")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -84,16 +85,13 @@ local function coming_later_control(name, icon, note)
     }
 end
 
--- Until the info panel arrives in Phase 3, the info button shows mpv's
--- own statistics overlay, which has the same information in raw form.
+-- Opens and closes the info panel.
 local function info_control()
     return {
         name = "info",
         icon = "info-circle",
         look = "normal",
-        action = function()
-            mp.command("script-binding stats/display-stats-toggle")
-        end,
+        action = info_panel.toggle,
     }
 end
 
