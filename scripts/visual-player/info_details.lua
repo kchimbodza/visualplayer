@@ -140,9 +140,15 @@ end
 --   7    Two layers, from UHD Blu-rays. mpv only plays the HDR10 base
 --        layer, so it's labelled as such (confirmed in Phase 0).
 --   8    One layer with a fallback: 8.1 falls back to HDR10, 8.4 to HLG,
---        and 8.2 to SDR. The fallback's brightness curve says which.
-local function describe_dolby_vision(track, transfer)
+--        and 8.2 to SDR. The fallback's brightness curve says which, but
+--        only while it's still visible. When mpv applies the Dolby Vision
+--        information, it converts the picture to PQ and marks its color
+--        matrix "dolbyvision", so the original curve is gone (found in
+--        Phase 4, step 2: Jellyfish, profile 8.4, showed as 8.1). Then
+--        it's just "Profile 8", rather than a guess.
+local function describe_dolby_vision(track, video)
     local profile = track["dolby-vision-profile"]
+    local transfer = video.gamma
     if profile == nil then
         return nil, nil
     end
@@ -152,6 +158,9 @@ local function describe_dolby_vision(track, transfer)
     end
 
     if profile == 8 then
+        if video.colormatrix == "dolbyvision" then
+            return "Dolby Vision", "Profile 8"
+        end
         if transfer == "pq" then
             return "Dolby Vision", "Profile 8.1"
         end
@@ -229,7 +238,7 @@ function info_details.video()
     local height = video.dh or video.h or 0
     local codec = VIDEO_CODEC_NAMES[track.codec] or (track.codec or ""):upper()
 
-    local dynamic_range, dolby_vision_profile = describe_dolby_vision(track, video.gamma)
+    local dynamic_range, dolby_vision_profile = describe_dolby_vision(track, video)
     if dynamic_range == nil then
         dynamic_range = describe_dynamic_range(video.gamma)
     end
@@ -333,7 +342,6 @@ local OUTPUT_KIND_NAMES = {
     hdmi = "HDMI",
     displayport = "DisplayPort",
     usb = "USB audio",
-    speakers = "Built-in",
     bluetooth = "Bluetooth",
 }
 
@@ -394,6 +402,11 @@ function info_details.output()
     local kind = OUTPUT_KIND_NAMES[output.kind] or "Output"
     if output.kind == "bluetooth" and output.codec then
         kind = kind .. " " .. output.codec
+    end
+
+    -- "Built-in speakers" already says what it is, so don't repeat it.
+    if output.kind == "speakers" then
+        kind = nil
     end
 
     return {
