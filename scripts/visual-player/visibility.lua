@@ -11,6 +11,7 @@
 
 local pointer = require("pointer")
 local redraw = require("redraw")
+local touch = require("touch")
 
 local visibility = {}
 
@@ -121,6 +122,12 @@ local function on_hide_countdown_finished()
 end
 
 local function on_pointer_moved()
+    -- A finger can't hover, so with touch controls on, moving the pointer
+    -- doesn't show the controls; tapping the video does (video_taps.lua).
+    if touch.is_on() then
+        return
+    end
+
     if pointer.is_over_window then
         show()
         return
@@ -148,6 +155,17 @@ end
 
 -- Changes how long the controls stay after the mouse stops moving. The
 -- mouse pointer hides on the same timer, so nothing sits over the picture.
+-- Shows the controls if they're hidden, and hides them if they're
+-- showing. Used by a tap on the video when touch controls are on.
+function visibility.toggle()
+    if should_show then
+        hide_timer:kill()
+        hide()
+    else
+        show()
+    end
+end
+
 function visibility.set_hide_delay(seconds)
     hide_timer.timeout = seconds
     mp.set_property_number("cursor-autohide", seconds * 1000)

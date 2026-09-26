@@ -21,6 +21,7 @@ local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
 local style = require("style")
+local touch = require("touch")
 
 local tools_row = {}
 
@@ -144,13 +145,20 @@ local function volume_icon_name()
     return "volume"
 end
 
--- Clicking the volume icon mutes and unmutes.
+-- Clicking the volume icon mutes and unmutes. With touch controls on,
+-- the first tap opens the volume slider instead, since a finger can't
+-- hover to open it, and tapping again mutes.
 local function volume_control()
     return {
         name = "volume",
         icon = volume_icon_name(),
         look = "normal",
         action = function()
+            if touch.is_on() and not is_volume_expanded then
+                is_volume_expanded = true
+                redraw.request()
+                return
+            end
             mp.command("cycle mute")
         end,
     }

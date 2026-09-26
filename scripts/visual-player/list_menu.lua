@@ -309,7 +309,10 @@ function list_menu.create(name, build_sections)
         end
     end
 
-    clicks = click_area.create(name, { on_click = on_click })
+    clicks = click_area.create(name, {
+        priority = click_area.PRIORITY_POPUP,
+        on_click = on_click,
+    })
 
     local function scroll_by(rows)
         scroll = scroll + rows * screen.pixels(ROW_HEIGHT)

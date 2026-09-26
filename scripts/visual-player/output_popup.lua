@@ -386,7 +386,10 @@ local function on_click()
     end
 end
 
-clicks = click_area.create("output-popup", { on_click = on_click })
+clicks = click_area.create("output-popup", {
+    priority = click_area.PRIORITY_POPUP,
+    on_click = on_click,
+})
 
 local function open()
     popups.close_all_except("output-popup")

@@ -22,6 +22,7 @@ local seek_bar = require("seek_bar")
 local settings_menu = require("settings_menu")
 local style = require("style")
 local tools_row = require("tools_row")
+local touch = require("touch")
 local visibility = require("visibility")
 
 local bottom_controls = {}
@@ -352,6 +353,10 @@ local function render()
     -- Picture-in-picture has its own minimal controls instead.
     local is_hidden = not visibility.is_shown() or picture_in_picture.is_on()
     if is_hidden or not screen.is_ready() then
+        -- A volume slider opened with a tap closes when the controls hide.
+        if touch.is_on() then
+            tools_row.set_volume_expanded(false)
+        end
         canvas:clear()
         hide_background()
         seek_bar.forget_drawn_area()
@@ -427,6 +432,7 @@ end
 -- it. Double-clicks there are ignored, so clicking a button twice quickly
 -- doesn't also switch to fullscreen.
 local clicks = click_area.create("bottom-controls", {
+    priority = click_area.PRIORITY_CONTROLS,
     on_click = on_click,
     on_release = on_release,
 })
@@ -453,7 +459,13 @@ local function on_pointer_moved()
 
     local now_hovered = find_hovered_control(layout)
     local seek_bar_changed = seek_bar.update_hover(layout.seek_bar_area)
-    local volume_changed = tools_row.set_volume_expanded(is_pointer_over_volume(layout))
+    -- With a mouse, the volume slider opens on hover. A finger can't
+    -- hover, so with touch controls on, tapping the icon opens it instead
+    -- (see tools_row.lua).
+    local volume_changed = false
+    if not touch.is_on() then
+        volume_changed = tools_row.set_volume_expanded(is_pointer_over_volume(layout))
+    end
 
     if now_hovered ~= hovered_control_name or seek_bar_changed or volume_changed then
         hovered_control_name = now_hovered
@@ -477,6 +489,12 @@ end
 -- while something is being dragged.
 local function should_stay_shown()
     return is_dragging_anything() or pointer.is_inside(calculate_layout().controls_area)
+end
+
+-- Where the controls begin, so taps above them count as taps on the
+-- video.
+function bottom_controls.top_edge()
+    return calculate_layout().controls_area.top
 end
 
 function bottom_controls.start()

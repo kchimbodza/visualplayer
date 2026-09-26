@@ -10,6 +10,7 @@ local list_menu = require("list_menu")
 local screen = require("screen")
 local settings = require("settings")
 local version = require("version")
+local touch = require("touch")
 local visibility = require("visibility")
 
 local settings_menu = {}
@@ -35,7 +36,19 @@ local CHOICES = {
         { value = false, name = "Off" },
         { value = true, name = "On" },
     },
+    touch_controls = {
+        { value = "automatic", name = "Automatic" },
+        { value = "on", name = "On" },
+        { value = "off", name = "Off" },
+    },
 }
+
+-- With touch controls on, the interface is at least Large, so controls
+-- are big enough for a thumb, and stays at least this long after a tap,
+-- since reaching for the screen takes longer than moving a mouse
+-- (docs/plan.md, section 5.9).
+local SMALLEST_TOUCH_SIZE_MULTIPLIER = 1.35
+local SHORTEST_TOUCH_HIDE_SECONDS = 4
 
 -- How much bigger each interface size draws everything. Large is meant
 -- for touch screens and TVs (docs/plan.md, section 5.9).
@@ -89,6 +102,7 @@ local function sections()
                 setting_item("Hide controls after", "hide_controls_after_seconds"),
                 setting_item("Interface size", "interface_size"),
                 setting_item("Remember window size", "remember_window_size"),
+                setting_item("Touch controls", "touch_controls"),
             },
         },
         {
@@ -119,9 +133,21 @@ local function apply(name)
         end
         mp.set_property("hwdec", hwdec)
     elseif name == "hide_controls_after_seconds" then
-        visibility.set_hide_delay(settings.get(name))
+        local seconds = settings.get(name)
+        if touch.is_on() then
+            seconds = math.max(seconds, SHORTEST_TOUCH_HIDE_SECONDS)
+        end
+        visibility.set_hide_delay(seconds)
     elseif name == "interface_size" then
-        screen.set_size_multiplier(INTERFACE_SIZE_MULTIPLIERS[settings.get(name)] or 1)
+        local multiplier = INTERFACE_SIZE_MULTIPLIERS[settings.get(name)] or 1
+        if touch.is_on() then
+            multiplier = math.max(multiplier, SMALLEST_TOUCH_SIZE_MULTIPLIER)
+        end
+        screen.set_size_multiplier(multiplier)
+    elseif name == "touch_controls" then
+        -- Touch controls change the smallest size and the hide delay.
+        apply("interface_size")
+        apply("hide_controls_after_seconds")
     end
 end
 

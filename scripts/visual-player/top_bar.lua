@@ -365,6 +365,7 @@ end
 
 -- The bar takes over mouse clicks only while the pointer is over it.
 local clicks = click_area.create("top-bar", {
+    priority = click_area.PRIORITY_CONTROLS,
     on_click = on_click,
     on_double_click = on_double_click,
 })
@@ -415,6 +416,11 @@ local function check_clock()
         clock_text = new_clock_text
         redraw.request()
     end
+end
+
+-- Where the bar ends, so taps below it count as taps on the video.
+function top_bar.bottom_edge()
+    return screen.pixels(BAR_HEIGHT)
 end
 
 function top_bar.start()

@@ -253,7 +253,10 @@ local function on_click()
     end
 end
 
-local clicks = click_area.create("picture-in-picture", { on_click = on_click })
+local clicks = click_area.create("picture-in-picture", {
+    priority = click_area.PRIORITY_PICTURE_IN_PICTURE,
+    on_click = on_click,
+})
 
 local function on_pointer_moved()
     if not is_on then

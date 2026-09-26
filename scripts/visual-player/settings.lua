@@ -18,6 +18,7 @@ local DEFAULTS = {
     hide_controls_after_seconds = 2,
     interface_size = "normal",
     remember_window_size = false,
+    touch_controls = "automatic",
     remembered_window_width = nil,
     remembered_window_height = nil,
 }

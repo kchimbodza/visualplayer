@@ -638,6 +638,8 @@ Phase 2 complete: version 0.2.0 installed as a package and confirmed on both Nob
 - **Lift subtitles above the controls while they're showing.** mpv doesn't know about Visual Player's controls, so subtitles sat behind them. `bottom_controls.lua` sets `sub-pos` to just above the controls while they're visible and puts it back when they hide, never lower than the person's own setting.
 - **Never loop over a list that might have gaps.** Lua's `ipairs` stops at the first missing value. It blanked details lines, and showed a stereo monitor as "Full 7.1" when mpv briefly had no channel count while switching outputs. Check optional values one by one, or loop to `table.maxn`.
 - **The output popup is only about sound.** A screen line under the sound device's name read as if it described that device, so it was removed; the info panel's Screen row covers the picture.
+- **mpv's hover flag is off for fingers.** A finger never enters the window like a mouse, so `mouse-pos` reports the right position with `hover` false, and every part thought taps were outside the window. While a press is happening, `pointer.lua` counts any position inside the window as over it.
+- **Never rely on hover to start listening for clicks.** Each part used to start taking clicks only once the pointer had moved over it. A finger lands and presses at once, so on the PX13's touchscreen the press arrived before anything was listening. `click_area.lua` now keeps one listener always active, reads the pointer at the moment of the press (`pointer.refresh_now()`), and gives the press to the part under it by priority: popups, then picture-in-picture, then the controls, then the video.
 - **Only one popup at a time.** Opening a menu with a key while the output popup was open left both showing. `popups.lua` keeps a registry, and opening any popup closes the others.
 - **Move subtitles above the controls while they show.** mpv places subtitles near the bottom, right where the controls are. `bottom_controls.lua` sets `sub-pos` to just above the playback row while the controls are visible, and restores the original value when they hide.
 - **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
@@ -672,9 +674,9 @@ Phase 4 complete: version 0.4.0, confirmed on Nobara. Still to test when hardwar
 
 ### Phase 5 — Menus and polish
 
-- [ ] Touch screens and control size (section 5.9): taps as clicks, a Normal, Large, and Extra large control size with Large chosen automatically for touchscreens, touch versions of hover behaviors, and a longer hide delay after touches. Neither Nobara (touchpad only) nor the Framework 13 has a touchscreen, so the control size setting is tested with a mouse, and the touch behaviors stay untested until a touchscreen is available.
+- [x] Step 4: touch controls (`touch.lua`, `video_taps.lua`) and the Touch controls setting (Automatic, On, Off; Automatic means on only when `/proc/bus/input/devices` lists a device with the "direct" property, `B: PROP` bit 2, meaning a touchscreen or pen. Names can't be trusted: the ASUS ProArt PX13's touchscreen is just "ELAN9008:00 04F3:4359" (PROP=2), while its touchpad has PROP=5). With them on: tapping the video shows or hides the controls instead of pointer movement, double-tapping the left or right third skips 10 seconds and the middle toggles fullscreen, tapping the speaker opens the volume slider and tapping again mutes, the interface is at least Large, and the controls stay at least 4 seconds. The "On" setting lets every behavior be tested with a mouse. Original item: taps as clicks, a Normal, Large, and Extra large control size with Large chosen automatically for touchscreens, touch versions of hover behaviors, and a longer hide delay after touches. Neither Nobara (touchpad only) nor the Framework 13 has a touchscreen, so the control size setting is tested with a mouse, and the touch behaviors stay untested until a touchscreen is available.
 
-- [ ] Step 3: picture-in-picture (`picture_in_picture.lua`), from a tools row button or Alt+P: leaves fullscreen or maximized, shrinks the window to a quarter of the screen's width (never below 240p), and shows a minimal interface of play/pause, back to full size, and close, with dragging anywhere else to move the window. Returning restores the previous size and state.
+- [x] Step 3: picture-in-picture (`picture_in_picture.lua`), from a tools row button or Alt+P: leaves fullscreen or maximized, shrinks the window to a quarter of the screen's width (never below 240p), and shows a minimal interface of play/pause, back to full size, and close, with dragging anywhere else to move the window. Returning restores the previous size and state.
 
   Wayland limits: apps can't place their own windows, so the window can't move itself into a corner; the person drags it. Always-on-top: on Hyprland, Visual Player floats and pins the window with `hyprctl`; on GNOME, apps can't set it, so the person uses Alt+Space, "Always on Top". mpv's `ontop` is set anyway for desktops that honor it.
 
@@ -682,6 +684,8 @@ Phase 4 complete: version 0.4.0, confirmed on Nobara. Still to test when hardwar
 - [x] Step 2: settings menu (`settings_menu.lua`, saved by `settings.lua` in `~/.config/visual-player/settings.json`): Hardware decoding (Automatic, Off), Hide controls after (2, 4, or 8 seconds, with the pointer), Interface size (Normal, Large 1.35×, Extra large 1.6×), Remember window size (Off, On), and an About line. Each shows its value on the right and steps to the next on click, with the menu staying open. The version now lives in `version.lua`.
 - [x] Rotation with confirmation (done in Phase 2, step 5).
 - [x] Animations (fade in/out) kept subtle (done in Phase 2, step 6).
+
+Phase 5 complete: version 0.5.0. Touch controls confirmed with a real finger on the ASUS ProArt PX13's touchscreen.
 
 ### Phase 6 — Release
 
