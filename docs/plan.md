@@ -219,6 +219,13 @@ expanded:   ... [settings]      [HDMI] ━━━━━━●──── [vol]
 - All overlay UI auto-hides after 2 seconds of no mouse movement during playback, stays visible while paused or while a popup is open.
 - Font: system sans for text, sized relative to window height so it scales with the window.
 
+### 5.1a Window size
+
+- **Smallest window: 240p** (426×240 at 16:9), measured in the screen's own scaling so it looks the same on every screen. This matches the small end of typical picture-in-picture windows.
+- mpv has no setting for a smallest window size, so `window_size.lua` resizes the window back up if it stays below 240p for half a second after a resize. It leaves fullscreen and maximized windows alone.
+- `autofit-smaller=426x240` in `config/mpv.conf` stops a window from opening smaller than that.
+- On Hyprland, a window rule could enforce a true minimum while dragging. Optional; check the Hyprland wiki for the current syntax.
+
 ### 5.2 Top bar
 
 - **Top left:** media title (`media-title`), with a subtitle line showing season/episode if parsed from the filename, plus current chapter name.
@@ -591,7 +598,7 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 ### Phase 2 — Core controls
 
 - [x] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), redraw limiting (`redraw.lua`), icon and text fonts, temporary test card.
-- [ ] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
+- [x] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Smallest window size of 240p (`window_size.lua`). Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
 - [ ] Step 3: playback row (play, previous, next, repeat, speed, time).
 - [ ] Step 4: chapter-segmented seek bar with scrubbing and hover preview.
 - [ ] Step 5: tools row and volume slider.
@@ -603,6 +610,9 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - **Only redraw when something visible changes.** Mouse movement fires constantly, so interface parts compare their new state with the old before asking for a redraw.
 - **Bundle fonts; don't rely on system defaults.** Nobara's default font is a variable Noto Sans, which mpv's text renderer drew with oddly small digits. Visual Player now ships Inter (regular and bold, OFL licensed) as `osd-font`, downloaded by `tools/update-text-font.py`.
 - **Keep licenses out of `fonts/`.** mpv tries to load every file in the fonts folder as a font, so licenses live in `licenses/`.
+- **For fades, blur one shape instead of stacking strips.** Stacked strips show thin seams where they meet, however many there are. A single rectangle with a blurred bottom edge fades smoothly and cost no noticeable extra.
+- **The interface scales with the window's height,** relative to 1080 pixels, like mpv's own controls. Scaling only by the desktop's HiDPI setting left everything tiny in large windows.
+- **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
 - **mpv draws a stand-in title bar when a window has no border** (its `windowcontrols` feature). Visual Player turns it off with `script-opts-append=osc-windowcontrols=no` once its own top bar is in place.
 
 ### Phase 3 — Info panel
@@ -622,6 +632,8 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - [ ] Per-device passthrough settings persisted.
 
 ### Phase 5 — Menus and polish
+
+- [ ] Picture-in-picture: one key or button shrinks the window to about a quarter of the screen's width in a corner and keeps it on top (mpv's `ontop`), with a minimal interface of play/pause, return to full size, and close. The 240p minimum still applies.
 
 - [ ] Subtitle and audio track pickers.
 - [ ] Chapters and playlist menu.

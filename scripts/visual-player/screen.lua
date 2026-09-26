@@ -10,6 +10,11 @@ local screen = {
     width = 0,
     height = 0,
     scale = 1,
+
+    -- The desktop's scaling for this screen, such as 2 on a screen set to
+    -- 200%. Used for sizes that should look the same on every screen,
+    -- like the smallest allowed window.
+    hidpi_scale = 1,
 }
 
 -- The window height the interface is designed for.
@@ -20,7 +25,6 @@ local DESIGN_HEIGHT = 1080
 -- stays readable.
 local SMALLEST_SCALE = 0.6
 
-local hidpi_scale = 1
 local change_listeners = {}
 
 -- Converts a size in design pixels into real pixels in this window.
@@ -40,7 +44,7 @@ end
 
 local function update_scale()
     local scale_for_window = screen.height / DESIGN_HEIGHT
-    local smallest_allowed = SMALLEST_SCALE * hidpi_scale
+    local smallest_allowed = SMALLEST_SCALE * screen.hidpi_scale
     screen.scale = math.max(scale_for_window, smallest_allowed)
 end
 
@@ -62,7 +66,7 @@ local function on_window_size_changed(_, dimensions)
 end
 
 local function on_hidpi_scale_changed(_, scale)
-    hidpi_scale = scale or 1
+    screen.hidpi_scale = scale or 1
     update_scale()
     tell_listeners()
 end
