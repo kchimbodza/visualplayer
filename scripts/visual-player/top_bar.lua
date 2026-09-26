@@ -418,6 +418,15 @@ local function check_clock()
     end
 end
 
+-- Where the format badges go: lined up with the window's right margin,
+-- under the window buttons, just below the clock's line. Returns the
+-- right edge and the top.
+function top_bar.badges_anchor()
+    local layout = calculate_layout()
+    local below_clock = layout.clock_middle + screen.pixels(CLOCK_SIZE) / 2 + screen.pixels(10)
+    return screen.width - screen.pixels(SIDE_MARGIN), below_clock
+end
+
 -- Where the bar ends, so taps below it count as taps on the video.
 function top_bar.bottom_edge()
     return screen.pixels(BAR_HEIGHT)

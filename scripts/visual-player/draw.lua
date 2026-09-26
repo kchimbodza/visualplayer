@@ -92,9 +92,19 @@ function draw.escape_text(text)
 end
 
 -- The start and end of every filled shape. A blur above zero softens
--- the shape's edges by that many pixels.
-local function start_shape(color, opacity, blur)
-    return "{\\an7\\pos(0,0)\\bord0\\shad0"
+-- the shape's edges by that many pixels. An outline, if given, is a table
+-- of { width, color, opacity }.
+local function start_shape(color, opacity, blur, outline)
+    local outline_part = "\\bord0"
+    if outline then
+        outline_part = string.format("\\bord%d", round(outline.width))
+            .. "\\3c"
+            .. to_ass_color(outline.color)
+            .. "\\3a"
+            .. to_ass_transparency(outline.opacity or 1)
+    end
+
+    return "{\\an7\\pos(0,0)" .. outline_part .. "\\shad0"
         .. string.format("\\blur%d", round(blur or 0))
         .. "\\1c"
         .. to_ass_color(color)
@@ -167,6 +177,8 @@ end
 -- options.color          "#RRGGBB"
 -- options.opacity        0 to 1, default 1
 -- options.corner_radius  pixels, default 0 for square corners
+-- options.outline        optional { width, color, opacity }: a line around
+--                        the edge, like the format badges' borders
 -- options.blur           pixels, default 0; softens the edges into a
 --                        smooth fade. Blurring costs more to draw than a
 --                        plain shape, so use it for large, rarely changing
@@ -186,7 +198,9 @@ function draw.rectangle(options)
         path = square_corner_path(area)
     end
 
-    return start_shape(options.color, options.opacity or 1, options.blur) .. path .. END_SHAPE
+    return start_shape(options.color, options.opacity or 1, options.blur, options.outline)
+        .. path
+        .. END_SHAPE
 end
 
 -- Draws a filled circle.

@@ -640,6 +640,9 @@ Phase 2 complete: version 0.2.0 installed as a package and confirmed on both Nob
 - **The output popup is only about sound.** A screen line under the sound device's name read as if it described that device, so it was removed; the info panel's Screen row covers the picture.
 - **mpv's hover flag is off for fingers.** A finger never enters the window like a mouse, so `mouse-pos` reports the right position with `hover` false, and every part thought taps were outside the window. While a press is happening, `pointer.lua` counts any position inside the window as over it.
 - **Never rely on hover to start listening for clicks.** Each part used to start taking clicks only once the pointer had moved over it. A finger lands and presses at once, so on the PX13's touchscreen the press arrived before anything was listening. `click_area.lua` now keeps one listener always active, reads the pointer at the moment of the press (`pointer.refresh_now()`), and gives the press to the part under it by priority: popups, then picture-in-picture, then the controls, then the video.
+- **Passthrough needs two agreements: the device's and PipeWire's.** Over HDMI (NVIDIA port, card 0), the PX277OLEDMAX listed PCM, AC-3, and DTS, while over DisplayPort it listed only PCM. PipeWire reported `iec958.codecs` (what the output could accept: PCM, DTS, AC3) and `iec958Codecs` in its Props (what it currently allows: only PCM). Passing DTS through then failed with "no target node available", giving silence. Only formats on both the device's list and PipeWire's allowed list are now passed through, and switching passthrough on asks PipeWire to allow the device's formats with `pw-cli set-param`. A monitor listing a format may still not decode it on its own speakers; it may only pass it on to a soundbar.
+- **Passthrough goes straight to the HDMI port, chosen at startup.** With an EZCOO extractor in its Atmos 7.1 mode (after a replug, so the laptop re-read it), mpv sending directly to `alsa/hdmi:CARD=NVidia,DEV=0` produced `spdif-truehd` and `spdif-eac3`, and the Poseidon D80 soundbar showed Dolby Atmos for both; through PipeWire, only AC-3 got through. Taking the port over mid-playback failed: once PipeWire has used the port, it doesn't reliably let go ("Device or resource busy"), even when asked with `pactl suspend-sink` and retried. So the simple rule, as in VLC: the outputs are checked once at startup, before any audio plays, and passthrough uses the direct port from the first moment. Switching it off takes effect immediately; switching it on while playing through PipeWire takes effect next time Visual Player starts, with a note saying so. No direct port means no passthrough.
+- **Turn off mpv's `osd-bar` too.** With `osc=no`, mpv still flashed its own small progress bar on keyboard seeks and volume changes. `osd-bar=no` switches it off, and `visibility.lua` shows Visual Player's controls on those instead.
 - **Only one popup at a time.** Opening a menu with a key while the output popup was open left both showing. `popups.lua` keeps a registry, and opening any popup closes the others.
 - **Move subtitles above the controls while they show.** mpv places subtitles near the bottom, right where the controls are. `bottom_controls.lua` sets `sub-pos` to just above the playback row while the controls are visible, and restores the original value when they hide.
 - **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
@@ -689,7 +692,8 @@ Phase 5 complete: version 0.5.0. Touch controls confirmed with a real finger on 
 
 ### Phase 6 — Release
 
-- [ ] Test matrix (section 13) passes on both machines.
+- [ ] Format badges (`badges.lua`), from the original sketch, which fell through the cracks when the info panel arrived: outlined labels under the clock, right-aligned with the window's edge, like "4K · HDR10 · HEVC · Dolby Atmos · TrueHD · 7.1". By default they appear a second after a file starts, stay 5 seconds, and fade out; the Format badges setting can show them with the controls instead, or turn them off. They describe what's actually played, so Dolby Vision profile 7 shows HDR10.
+- [ ] Step 1: test checklist (`docs/testing.md`), pre-filled with everything confirmed while building; the gaps run through on both machines.
 - [ ] Publish AUR package and COPR repo.
 - [ ] README with screenshots and install instructions.
 
@@ -697,25 +701,7 @@ Phase 5 complete: version 0.5.0. Touch controls confirmed with a real finger on 
 
 ## 13. Test matrix
 
-| Case | Nobara (GNOME) | Omarchy (Hyprland) |
-|---|---|---|
-| HDR10 file, HDR display | Pass | Not available (SDR screen) |
-| HDR10 file, SDR display (tone mapping) | | Pass |
-| HLG file, HDR display | Pass | Not available (SDR screen) |
-| HLG file, SDR display (tone mapping) | | Pass |
-| SDR file, HDR display (looks normal) | Pass | Not available (SDR screen) |
-| Dolby Vision profile 5 and 8 | Pass | Pass |
-| 4K AV1 hardware decode | | |
-| TrueHD Atmos passthrough over HDMI | | |
-| Bluetooth headphones (codec shown, downmix shown) | | |
-| USB-C DisplayPort monitor | | |
-| External 240 Hz HDR monitor (DP) | Pass (HDR, 1 drop in 74 s) | |
-| Built-in display and speakers | Pass | Pass |
-| Device hot-plug during playback | | |
-| Window drag, resize, fullscreen | | |
-| Audio-only file (rows hidden) | | |
-| HLS stream (buffer and bitrate shown) | | |
-
+The full checklist lives in `docs/testing.md`, with each case's result on Nobara and Omarchy. Run through it before every release.
 ---
 
 ## 14. Risks and open questions

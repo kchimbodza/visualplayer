@@ -42,6 +42,17 @@ local BLUETOOTH_CODEC_NAMES = {
 --              can decode themselves, in mpv's names ("truehd", "eac3"),
 --              so they can be passed through untouched. Empty when the
 --              device only takes plain PCM.
+--   pipewire_allowed_formats   the formats PipeWire currently lets
+--              through untouched on this output, in PipeWire's names
+--              ("PCM", "AC3", "DTS"). PipeWire only allows PCM until
+--              passthrough is enabled for it (Phase 6: a monitor over
+--              HDMI listed DTS, PipeWire allowed only PCM, and passing
+--              DTS through gave silence).
+--   pipewire_id   PipeWire's number for this output, used to change what
+--              it allows
+--   alsa_card, alsa_port   for screens and receivers, the sound card and
+--              port, used to send passthrough audio straight to the port
+--              (see outputs/passthrough.lua)
 local current_output = nil
 
 -- Every output PipeWire knows about, described the same way, plus
@@ -192,6 +203,8 @@ local function describe_output(node, device)
             name = name,
             channels = channels,
             passthrough_formats = passthrough_formats,
+            alsa_card = card,
+            alsa_port = screen_port_from_name(node_name),
         }
     end
 
@@ -213,10 +226,36 @@ local function find_default_output_name(objects)
     return nil
 end
 
+-- When passthrough sends audio straight to an HDMI port, mpv's output is
+-- the port's direct name, like "alsa/hdmi:CARD=NVidia,DEV=0". That's
+-- still the same device as far as people are concerned, so this records
+-- which PipeWire output it stands in for.
+local direct_route = nil
+
+-- Records that mpv is sending audio straight to a port, standing in for
+-- the given PipeWire output (its mpv name, "pipewire/...").
+function audio_output.use_direct_route(direct_name, pipewire_mpv_name)
+    direct_route = { direct_name = direct_name, pipewire_mpv_name = pipewire_mpv_name }
+end
+
+function audio_output.stop_direct_route()
+    direct_route = nil
+end
+
+-- The direct name mpv is using, or nil when audio goes through PipeWire.
+function audio_output.direct_route_name()
+    return direct_route and direct_route.direct_name
+end
+
 -- The PipeWire name of the output mpv is using. mpv's names look like
 -- "pipewire/alsa_output..." or "pulse/alsa_output...", or just "auto".
 local function output_name_in_use(objects)
     local device = mp.get_property("audio-device", "auto")
+
+    if direct_route and device == direct_route.direct_name then
+        device = direct_route.pipewire_mpv_name
+    end
+
     if device == "auto" or device == "pipewire" or device == "pulse" then
         return find_default_output_name(objects)
     end
@@ -240,6 +279,17 @@ local function describe_all_outputs(objects, wanted_name)
             local output = describe_output(props, devices[props["device.id"]] or {})
             output.mpv_name = "pipewire/" .. (props["node.name"] or "")
             output.is_current = props["node.name"] == wanted_name
+            output.pipewire_id = object.id
+
+            -- What PipeWire currently allows through untouched is in the
+            -- output's "Props" settings, as "iec958Codecs".
+            output.pipewire_allowed_formats = {}
+            local params = (object.info or {}).params or {}
+            for _, setting in ipairs(params.Props or {}) do
+                if type(setting.iec958Codecs) == "table" then
+                    output.pipewire_allowed_formats = setting.iec958Codecs
+                end
+            end
             table.insert(outputs, output)
         end
     end
@@ -262,9 +312,12 @@ end
 local last_list_summary = nil
 
 local function summarize_list(outputs)
+    -- Includes what PipeWire allows, so allowing passthrough counts as a
+    -- change worth announcing.
     local names = {}
     for _, output in ipairs(outputs) do
-        table.insert(names, output.mpv_name)
+        local allowed = table.concat(output.pipewire_allowed_formats, ",")
+        table.insert(names, output.mpv_name .. " " .. allowed)
     end
     return table.concat(names, "|")
 end
@@ -340,7 +393,30 @@ update = function()
     }, on_pw_dump_finished)
 end
 
+-- Checks the outputs again straight away, for example after changing
+-- what PipeWire allows.
+function audio_output.refresh()
+    update()
+end
+
+-- Checks the outputs straight away and waits for the answer, which takes
+-- a fraction of a second. Used once at startup, so passthrough can choose
+-- its route before the first file's audio starts. Otherwise playback
+-- starts through PipeWire, which then holds the HDMI port, and switching
+-- to it directly fails with "Device or resource busy" (Phase 6).
+local function update_and_wait()
+    local result = mp.command_native({
+        name = "subprocess",
+        args = { "pw-dump" },
+        capture_stdout = true,
+        playback_only = false,
+    })
+    on_pw_dump_finished(result ~= nil, result)
+end
+
 function audio_output.start()
+    update_and_wait()
+
     -- Check again whenever an output is plugged in or removed, or a
     -- different one is chosen.
     mp.observe_property("audio-device", "string", update)

@@ -233,6 +233,37 @@ local function is_tone_mapped_to_sdr(source_transfer)
     return not is_hdr_transfer(output.gamma)
 end
 
+-- mpv reports the brightness curve as "auto", or not at all, until it
+-- has worked it out.
+local function is_transfer_known(transfer)
+    return transfer ~= nil and transfer ~= "" and transfer ~= "auto"
+end
+
+-- A short summary of the picture, for the format badges: its resolution
+-- ("4K"), what's actually being played in terms of brightness range
+-- ("Dolby Vision", "HDR10", "HLG", or "SDR"), and its codec ("HEVC").
+-- Dolby Vision profile 7 counts as HDR10, since only its HDR10 base
+-- layer is played (Phase 0). Returns nil for files without a picture.
+function info_details.picture_summary()
+    local video = mp.get_property_native("video-params")
+    local track = mp.get_property_native("current-tracks/video")
+    if video == nil or track == nil or track.image or not is_transfer_known(video.gamma) then
+        return nil
+    end
+
+    local dynamic_range = describe_dynamic_range(video.gamma)
+    local profile = track["dolby-vision-profile"]
+    if profile and profile ~= 7 then
+        dynamic_range = "Dolby Vision"
+    end
+
+    return {
+        resolution = describe_resolution(video.dw or video.w or 0, video.dh or video.h or 0),
+        dynamic_range = dynamic_range,
+        codec = VIDEO_CODEC_NAMES[track.codec] or (track.codec or ""):upper(),
+    }
+end
+
 -- Returns the video row, or nil if the file has no picture.
 function info_details.video()
     local video = mp.get_property_native("video-params")
@@ -340,6 +371,32 @@ end
 -- A subtitle track's format, like "SRT" or "PGS".
 function info_details.describe_subtitle_format(track)
     return SUBTITLE_FORMAT_NAMES[track.codec] or (track.codec or ""):upper()
+end
+
+-- A short summary of the sound, for the format badges. It's defined here,
+-- below the audio helpers it uses, because Lua only finds a local helper
+-- defined above the function using it (placing it earlier broke the
+-- badges in Phase 6).
+--
+-- It gives: whether it's
+-- Atmos, its codec's short name ("TrueHD", "DTS-HD MA"), and its channels
+-- ("7.1"). Returns nil when nothing is playing any sound.
+function info_details.sound_summary()
+    local track = mp.get_property_native("current-tracks/audio")
+    if track == nil then
+        return nil
+    end
+
+    local codec = describe_audio_codec(track)
+    if track.codec ~= "dts" then
+        codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or codec
+    end
+
+    return {
+        is_atmos = has_atmos(track),
+        codec = codec,
+        channels = describe_channels(track),
+    }
 end
 
 -- Returns the audio row, or nil if nothing is playing any sound.
@@ -466,8 +523,14 @@ function info_details.output()
     local sent = mp.get_property_native("audio-out-params") or {}
     local is_passing_through = (sent.format or ""):find("^spdif") ~= nil
     if passthrough.is_on(output) and not is_passing_through and track.codec then
-        local codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or AUDIO_CODEC_NAMES[track.codec]
-        capability = "Can't pass " .. (codec or track.codec) .. " through"
+        -- Switched on while playing through PipeWire, which keeps the
+        -- port until next time (see outputs/passthrough.lua).
+        if mp.get_property("current-ao") == "pipewire" then
+            capability = "Passthrough starts next time"
+        else
+            local codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or AUDIO_CODEC_NAMES[track.codec]
+            capability = "Can't pass " .. (codec or track.codec) .. " through"
+        end
     end
 
     return {

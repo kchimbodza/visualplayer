@@ -19,6 +19,7 @@ local DEFAULTS = {
     interface_size = "normal",
     remember_window_size = false,
     touch_controls = "automatic",
+    format_badges = "at_start",
     remembered_window_width = nil,
     remembered_window_height = nil,
 }

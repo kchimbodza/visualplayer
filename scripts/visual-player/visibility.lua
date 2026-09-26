@@ -171,6 +171,19 @@ function visibility.set_hide_delay(seconds)
     mp.set_property_number("cursor-autohide", seconds * 1000)
 end
 
+-- Seeking or changing the volume from the keyboard shows the controls,
+-- so the seek bar and volume can be seen changing. (mpv's own small
+-- progress bar, which used to appear, is switched off in mpv.conf.)
+local has_volume_been_read = false
+
+local function on_volume_changed()
+    -- The first report is just the starting volume, not a change.
+    if has_volume_been_read then
+        show()
+    end
+    has_volume_been_read = true
+end
+
 function visibility.start()
     hide_timer = mp.add_timeout(DEFAULT_HIDE_AFTER_SECONDS, on_hide_countdown_finished)
     hide_timer:kill()
@@ -180,6 +193,8 @@ function visibility.start()
 
     pointer.on_move(on_pointer_moved)
     mp.observe_property("pause", "bool", on_pause_changed)
+    mp.register_event("seek", show)
+    mp.observe_property("volume", "number", on_volume_changed)
 end
 
 return visibility

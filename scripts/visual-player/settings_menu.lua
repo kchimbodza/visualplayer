@@ -36,6 +36,11 @@ local CHOICES = {
         { value = false, name = "Off" },
         { value = true, name = "On" },
     },
+    format_badges = {
+        { value = "at_start", name = "When a file starts" },
+        { value = "with_controls", name = "With the controls" },
+        { value = "off", name = "Off" },
+    },
     touch_controls = {
         { value = "automatic", name = "Automatic" },
         { value = "on", name = "On" },
@@ -102,6 +107,7 @@ local function sections()
                 setting_item("Hide controls after", "hide_controls_after_seconds"),
                 setting_item("Interface size", "interface_size"),
                 setting_item("Remember window size", "remember_window_size"),
+                setting_item("Format badges", "format_badges"),
                 setting_item("Touch controls", "touch_controls"),
             },
         },

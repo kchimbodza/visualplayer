@@ -4,6 +4,7 @@
 -- The parts themselves live in their own files next to this one.
 
 local audio_output = require("outputs.audio")
+local badges = require("badges")
 local passthrough = require("outputs.passthrough")
 local bottom_controls = require("bottom_controls")
 local click_area = require("click_area")
@@ -33,9 +34,12 @@ screen.start()
 pointer.start()
 click_area.start()
 playback_log.start()
-audio_output.start()
+-- Passthrough starts listening before the first check of the outputs,
+-- so it can choose its route before any audio plays.
 passthrough.start()
+audio_output.start()
 top_bar.start()
+badges.start()
 bottom_controls.start()
 info_panel.start()
 output_popup.start()
