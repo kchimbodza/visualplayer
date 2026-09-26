@@ -6,10 +6,12 @@
 -- moves the window, double-clicking it maximizes, and on GNOME it shows
 -- minimize, maximize, and close buttons.
 
+local click_area = require("click_area")
 local draw = require("draw")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
+local style = require("style")
 
 local top_bar = {}
 
@@ -32,23 +34,13 @@ local GAP_BETWEEN_TITLE_AND_CLOCK = 24
 -- gradients, so this is one dark rectangle with a blurred bottom edge.
 -- (Stacked strips were tried first, but showed thin seams where the
 -- strips met.) The rectangle reaches past the top and sides of the
--- window, so only its bottom edge fades within view.
-local BACKGROUND_OPACITY = 0.7
-
+-- window, so only its bottom edge fades within view. Its color and
+-- strength come from style.lua.
+--
 -- Where the fade is centered, and how far it spreads, as fractions of
 -- the bar's height.
 local BACKGROUND_FADE_CENTER = 0.55
 local BACKGROUND_FADE_SPREAD = 0.45
-
-local TEXT_COLOR = "#F2F2F2"
-local MUTED_TEXT_COLOR = "#B4B4B4"
-local HOVER_COLOR = "#FFFFFF"
-local HOVER_OPACITY = 0.15
-
--- Inter's letters average a little over half their height in width. ASS
--- can't measure text, so this estimate is used to keep the title and the
--- clock from overlapping.
-local AVERAGE_CHARACTER_WIDTH = 0.56
 
 local DAY_NAMES = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
 local MONTH_NAMES = {
@@ -63,7 +55,6 @@ local canvas = draw.create_canvas()
 
 local is_visible = false
 local hovered_button_name = nil
-local is_taking_clicks = false
 
 local title_text = ""
 local subtitle_text = ""
@@ -99,17 +90,6 @@ local WINDOW_BUTTONS = {
         end,
     },
 }
-
--- Counts characters rather than bytes, since symbols like "·" take
--- several bytes in UTF-8. Continuation bytes (128 to 191) are skipped.
-local function count_characters(text)
-    local _, count = text:gsub("[^\128-\191]", "")
-    return count
-end
-
-local function estimate_text_width(text, size)
-    return count_characters(text) * size * AVERAGE_CHARACTER_WIDTH
-end
 
 local function format_clock()
     local now = os.date("*t")
@@ -240,7 +220,7 @@ local function calculate_layout()
     layout.clock_right = right_edge
     layout.clock_middle = first_line_middle
 
-    local clock_width = estimate_text_width(clock_text, screen.pixels(CLOCK_SIZE))
+    local clock_width = draw.estimate_text_width(clock_text, screen.pixels(CLOCK_SIZE))
     layout.title_area = {
         left = screen.pixels(SIDE_MARGIN),
         top = 0,
@@ -271,8 +251,8 @@ local function add_background(bar)
             right = bar.right + blur,
             bottom = bar.top + bar_height * BACKGROUND_FADE_CENTER,
         },
-        color = "#000000",
-        opacity = BACKGROUND_OPACITY,
+        color = style.BACKGROUND_COLOR,
+        opacity = style.BACKGROUND_OPACITY,
         blur = blur,
     }))
 end
@@ -285,7 +265,7 @@ local function add_title_and_subtitle(title_area)
         y = title_top,
         text = title_text,
         size = screen.pixels(TITLE_SIZE),
-        color = TEXT_COLOR,
+        color = style.TEXT_COLOR,
         clip = title_area,
     }))
 
@@ -295,7 +275,7 @@ local function add_title_and_subtitle(title_area)
             y = title_top + screen.pixels(TITLE_SIZE + GAP_BETWEEN_LINES),
             text = subtitle_text,
             size = screen.pixels(SUBTITLE_SIZE),
-            color = MUTED_TEXT_COLOR,
+            color = style.MUTED_TEXT_COLOR,
             clip = title_area,
         }))
     end
@@ -312,8 +292,8 @@ local function add_window_buttons(buttons)
                 x = middle_x,
                 y = middle_y,
                 radius = (area.right - area.left) / 2,
-                color = HOVER_COLOR,
-                opacity = HOVER_OPACITY,
+                color = style.HOVER_COLOR,
+                opacity = style.HOVER_OPACITY,
             }))
         end
 
@@ -322,7 +302,7 @@ local function add_window_buttons(buttons)
             x = middle_x,
             y = middle_y,
             size = screen.pixels(WINDOW_BUTTON_ICON_SIZE),
-            color = TEXT_COLOR,
+            color = style.TEXT_COLOR,
         }))
     end
 end
@@ -345,7 +325,7 @@ local function render()
         vertical = "middle",
         text = clock_text,
         size = screen.pixels(CLOCK_SIZE),
-        color = MUTED_TEXT_COLOR,
+        color = style.MUTED_TEXT_COLOR,
     }))
 
     add_window_buttons(layout.buttons)
@@ -355,11 +335,7 @@ end
 
 -- A click on a window button runs it; a click anywhere else on the bar
 -- starts moving the window, like a normal title bar.
-local function on_click(event)
-    if event.event ~= "down" then
-        return
-    end
-
+local function on_click()
     local layout = calculate_layout()
     for _, placed in ipairs(layout.buttons) do
         if pointer.is_inside(placed.area) then
@@ -375,19 +351,11 @@ local function on_double_click()
     mp.commandv("cycle", "window-maximized")
 end
 
--- The bar only takes over mouse clicks while the pointer is over it, so
--- clicks everywhere else keep working as usual.
-local function start_taking_clicks()
-    mp.add_forced_key_binding("MBTN_LEFT", "top-bar-click", on_click, { complex = true })
-    mp.add_forced_key_binding("MBTN_LEFT_DBL", "top-bar-double-click", on_double_click)
-    is_taking_clicks = true
-end
-
-local function stop_taking_clicks()
-    mp.remove_key_binding("top-bar-click")
-    mp.remove_key_binding("top-bar-double-click")
-    is_taking_clicks = false
-end
+-- The bar takes over mouse clicks only while the pointer is over it.
+local clicks = click_area.create("top-bar", {
+    on_click = on_click,
+    on_double_click = on_double_click,
+})
 
 -- Mouse movement happens constantly, so only ask for a redraw when
 -- something visible actually changes.
@@ -403,12 +371,7 @@ local function on_pointer_moved()
         redraw.request()
     end
 
-    local is_over_bar = pointer.is_inside(layout.bar)
-    if is_over_bar and not is_taking_clicks then
-        start_taking_clicks()
-    elseif not is_over_bar and is_taking_clicks then
-        stop_taking_clicks()
-    end
+    clicks:update(pointer.is_inside(layout.bar))
 end
 
 local function on_title_changed()

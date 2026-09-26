@@ -5,6 +5,7 @@
 
 local VERSION = "0.2.0-dev"
 
+local bottom_controls = require("bottom_controls")
 local playback_log = require("playback_log")
 local pointer = require("pointer")
 local screen = require("screen")
@@ -18,5 +19,6 @@ screen.start()
 pointer.start()
 playback_log.start()
 top_bar.start()
+bottom_controls.start()
 window_size.start()
 toolkit_preview.start()

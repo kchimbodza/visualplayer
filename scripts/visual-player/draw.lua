@@ -247,6 +247,24 @@ function draw.text(options)
     )
 end
 
+-- Inter's letters average a little over half their height in width. ASS
+-- can't measure text, so this estimate is used wherever the interface
+-- needs to know how much room some text will take.
+local AVERAGE_CHARACTER_WIDTH = 0.56
+
+-- Counts characters rather than bytes, since symbols like "·" and "×"
+-- take several bytes in UTF-8. Continuation bytes (128 to 191) are
+-- skipped.
+local function count_characters(text)
+    local _, count = text:gsub("[^\128-\191]", "")
+    return count
+end
+
+-- Estimates how wide some text will be at a given size, in pixels.
+function draw.estimate_text_width(text, size)
+    return count_characters(text) * size * AVERAGE_CHARACTER_WIDTH
+end
+
 -- Icon names we've already warned about, so a missing icon is reported
 -- once rather than every time the screen redraws.
 local warned_icon_names = {}
@@ -269,10 +287,17 @@ function draw.icon(options)
         return ""
     end
 
+    -- Fonts center a character by its spacing, not its visible shape, so
+    -- icons can land slightly off-center. icons.lua records how far off
+    -- each one is (measured by tools/update-icon-font.py); shift it back.
+    local offset = (icons.offsets or {})[options.name] or { x = 0, y = 0 }
+    local x = options.x - offset.x * options.size
+    local y = options.y - offset.y * options.size
+
     return string.format(
         "{\\an5\\pos(%d,%d)\\fn%s\\fs%d\\bord0\\shad0\\1c%s\\1a%s}%s",
-        round(options.x),
-        round(options.y),
+        round(x),
+        round(y),
         icons.font_family,
         round(options.size),
         to_ass_color(options.color or "#FFFFFF"),

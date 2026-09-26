@@ -6,10 +6,13 @@ Visual Player draws its icons with Tabler Icons (MIT licensed). This script:
   1. downloads a Tabler Icons release from npm,
   2. finds the character code of each icon listed in NEEDED_ICONS,
   3. saves the font into fonts/ and its license into licenses/, and
-  4. writes scripts/visual-player/icons.lua, which the Lua code reads.
+  4. measures where each icon's visible shape sits, so it can be centered
+     exactly, and
+  5. writes scripts/visual-player/icons.lua, which the Lua code reads.
 
-If Python's fontTools is installed, the font is trimmed down to only the
-icons Visual Player uses, which shrinks it from megabytes to kilobytes.
+This needs Python's fontTools (python3-fonttools). It's used to trim the
+font down to only the icons Visual Player uses, shrinking it from
+megabytes to kilobytes, and to measure each icon.
 
 Run it again after adding a name to NEEDED_ICONS.
 
@@ -151,6 +154,66 @@ def trim_font(font_bytes, character_codes):
     return trimmed.getvalue()
 
 
+def measure_centering(font_path, codes_by_name):
+    """Works out how far each icon's visible shape is from the center of
+    the box mpv's text renderer centers it by.
+
+    The renderer centers a character using its spacing and the font's line
+    height, not the visible shape, so icons can land slightly off-center.
+    For each icon this returns how far the shape's middle is from the
+    box's middle, as a fraction of the font size: positive x means it sits
+    too far right, positive y too far down. draw.lua shifts each icon back
+    by that amount.
+    """
+    try:
+        from fontTools.pens.boundsPen import BoundsPen
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        print("fontTools isn't installed, so icons can't be measured for centering.")
+        return {}
+
+    font = TTFont(font_path)
+    character_map = font.getBestCmap()
+    glyphs = font.getGlyphSet()
+
+    # mpv's text renderer sizes text by the font's "Windows" line height
+    # when a font has one, the way older subtitle software did.
+    os2 = font["OS/2"] if "OS/2" in font else None
+    if os2 is not None and os2.usWinAscent + os2.usWinDescent > 0:
+        ascent, descent = os2.usWinAscent, os2.usWinDescent
+    else:
+        ascent, descent = font["hhea"].ascent, -font["hhea"].descent
+    line_height = ascent + descent
+
+    offsets = {}
+    for name, code in codes_by_name.items():
+        glyph_name = character_map.get(code)
+        if glyph_name is None:
+            continue
+
+        pen = BoundsPen(glyphs)
+        glyphs[glyph_name].draw(pen)
+        if pen.bounds is None:
+            continue
+        left, bottom, right, top = pen.bounds
+        advance_width = font["hmtx"][glyph_name][0]
+
+        shape_middle_x = (left + right) / 2
+        box_middle_x = advance_width / 2
+
+        # Font units count upwards from the baseline; screen positions
+        # count downwards from the top of the line.
+        shape_middle_from_top = ascent - (bottom + top) / 2
+        box_middle_from_top = line_height / 2
+
+        offsets[name] = (
+            (shape_middle_x - box_middle_x) / line_height,
+            (shape_middle_from_top - box_middle_from_top) / line_height,
+        )
+
+    return offsets
+
+
 def read_font_family_name(font_path):
     """Returns the font's family name, which ASS uses to pick the font."""
     try:
@@ -172,7 +235,7 @@ def read_font_family_name(font_path):
     return "tabler-icons"
 
 
-def write_icon_list(font_family, version, codes_by_name):
+def write_icon_list(font_family, version, codes_by_name, offsets):
     lines = [
         "-- The icons Visual Player uses, and where to find each one in the icon font.",
         "--",
@@ -187,6 +250,17 @@ def write_icon_list(font_family, version, codes_by_name):
     ]
     for name in sorted(codes_by_name):
         lines.append(f'        ["{name}"] = 0x{codes_by_name[name]:X},')
+    lines += [
+        "    },",
+        "",
+        "    -- How far each icon's visible shape sits from the middle of its box,",
+        "    -- as a fraction of the font size. Positive x is too far right,",
+        "    -- positive y too far down. draw.lua shifts icons back by this much.",
+        "    offsets = {",
+    ]
+    for name in sorted(offsets):
+        x, y = offsets[name]
+        lines.append(f'        ["{name}"] = {{ x = {x:.4f}, y = {y:.4f} }},')
     lines += ["    },", "}", ""]
 
     ICON_LIST_FILE.write_text("\n".join(lines))
@@ -216,7 +290,8 @@ def main():
         LICENSE_FILE.write_bytes(license_text)
 
     font_family = read_font_family_name(FONT_FILE)
-    write_icon_list(font_family, exact_version, needed_codes)
+    offsets = measure_centering(FONT_FILE, needed_codes)
+    write_icon_list(font_family, exact_version, needed_codes, offsets)
 
     size_in_kb = FONT_FILE.stat().st_size / 1024
     print(f"Saved {len(needed_codes)} icons ({size_in_kb:.0f} KB), font family '{font_family}'.")

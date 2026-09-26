@@ -599,7 +599,7 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 
 - [x] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), redraw limiting (`redraw.lua`), icon and text fonts, temporary test card.
 - [x] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Smallest window size of 240p (`window_size.lua`). Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
-- [ ] Step 3: playback row (play, previous, next, repeat, speed, time).
+- [ ] Step 3: playback row (`playback_row.lua`) inside the bottom area (`bottom_controls.lua`), with shared click handling (`click_area.lua`). mpv's own controls turned off (`osc=no`).
 - [ ] Step 4: chapter-segmented seek bar with scrubbing and hover preview.
 - [ ] Step 5: tools row and volume slider.
 - [ ] Step 6: auto-hide, and switch to `osc=no` and `border=no`.
@@ -612,6 +612,8 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - **Keep licenses out of `fonts/`.** mpv tries to load every file in the fonts folder as a font, so licenses live in `licenses/`.
 - **For fades, blur one shape instead of stacking strips.** Stacked strips show thin seams where they meet, however many there are. A single rectangle with a blurred bottom edge fades smoothly and cost no noticeable extra.
 - **The interface scales with the window's height,** relative to 1080 pixels, like mpv's own controls. Scaling only by the desktop's HiDPI setting left everything tiny in large windows.
+- **Hover highlights must be strong (45% white).** In HDR, mpv draws the interface at "paper white" brightness while the video can be far brighter, so 15% and even 28% nearly vanished over bright scenes. Shared colors and strengths now live in `style.lua`.
+- **Icons need per-icon centering.** mpv's text renderer centers a character by its spacing and line height, not its visible shape, so icons sat slightly off-center in their hover circles. `tools/update-icon-font.py` now measures each icon's shape with fontTools and stores a correction in `icons.lua`, which `draw.icon` applies.
 - **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
 - **mpv draws a stand-in title bar when a window has no border** (its `windowcontrols` feature). Visual Player turns it off with `script-opts-append=osc-windowcontrols=no` once its own top bar is in place.
 
