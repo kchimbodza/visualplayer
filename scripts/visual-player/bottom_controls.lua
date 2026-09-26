@@ -373,7 +373,9 @@ end
 
 local function render()
     -- Picture-in-picture has its own minimal controls instead.
-    local is_hidden = not visibility.is_shown() or picture_in_picture.is_on()
+    -- With nothing playing, the idle screen shows instead (idle_screen.lua).
+    local is_idle = mp.get_property_bool("idle-active", false)
+    local is_hidden = not visibility.is_shown() or picture_in_picture.is_on() or is_idle
     if is_hidden or not screen.is_ready() then
         -- A volume slider opened with a tap closes when the controls hide.
         if touch.is_on() then
@@ -501,6 +503,7 @@ local function on_pointer_moved()
     local is_popup_open = output_popup.is_open() or menus.is_any_open() or settings_menu.is_open()
     clicks:update(
         visibility.is_shown()
+            and not mp.get_property_bool("idle-active", false)
             and is_pointer_over_controls
             and not is_popup_open
             and not picture_in_picture.is_on()

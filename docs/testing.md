@@ -101,6 +101,7 @@ Barco Stinger Bees, plus `samples/test.srt` and
 |---|---|---|
 | Installs as a package, `vplay` works from anywhere | Pass | Pass |
 | App menu entry with icon | Pass | Pass |
+| Opening from the app menu with no file shows the idle screen; dropping a video plays it | | |
 | Open With from the file manager | Pass | |
 | Dock or taskbar shows Visual Player, not mpv | Pass | Pass |
 | Upgrading from the previous version | Pass | Pass |

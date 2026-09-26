@@ -49,7 +49,14 @@ fi
 #
 # --wayland-app-id must match the desktop entry name, so the dock and task
 # switcher show Visual Player's name and icon instead of mpv's.
+#
+# --idle=once and --force-window=yes open a window and wait when there's
+# no file, as when opened from the app launcher, and close as usual once
+# playback finishes. Without them, mpv with no file just printed its
+# usage and quit, so the launcher seemed to do nothing (Phase 6).
 exec mpv \
+    --idle=once \
+    --force-window=yes \
     --no-config \
     --config-dir="$user_folder" \
     --include="$app_folder/config/mpv.conf" \
