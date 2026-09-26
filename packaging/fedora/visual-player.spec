@@ -24,8 +24,6 @@ Requires:       hicolor-icon-theme
 # output.
 Requires:       pipewire-utils
 Requires:       pulseaudio-utils
-# pw-dump, used from Phase 4 to detect audio outputs and Bluetooth codecs.
-Recommends:     pipewire-utils
 
 %description
 Visual Player is a media player built on mpv. It outputs true HDR on

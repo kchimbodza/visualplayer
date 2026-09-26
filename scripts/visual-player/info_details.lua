@@ -106,6 +106,10 @@ end
 -- because wide films are often 3840 pixels wide but only 1600 tall, and
 -- still count as 4K.
 local function describe_resolution(width, height)
+    -- 8K (7680×4320) had been labeled "4K", since this used to stop there.
+    if width >= 6400 or height >= 4000 then
+        return "8K"
+    end
     if width >= 3200 or height >= 2000 then
         return "4K"
     end

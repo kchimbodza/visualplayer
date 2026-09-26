@@ -29,6 +29,9 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | Dolby Vision profile 8 (Jellyfish): "Profile 8" | Pass | |
 | 4K HEVC hardware decoding | Pass (Vulkan) | Pass (VA-API) |
 | 4K AV1 hardware decoding | | Pass (VA-API, 0 dropped) |
+| 8K AV1 hardware decoding (Jellyfin 8K AV1 10bit 100M, 60 fps) | Pass (Vulkan, 1 dropped in 29 s) | |
+| 8K HEVC HDR10 at 150 Mb/s (Jellyfin) | Pass (Vulkan, 22 dropped in 29 s) | |
+| 8K labeled "8K" in the badges and info panel | Pass | |
 | Status line: smooth, dropping frames with the right cause, paused | Pass | |
 
 ## Sound
