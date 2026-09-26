@@ -63,14 +63,29 @@ local function describe_current_track()
         headline = headline .. " · " .. language
     end
 
-    local format, short_codec = info_details.describe_audio_format(track)
-    local parts = { format }
-    if short_codec and not format:find(short_codec, 1, true) then
-        table.insert(parts, short_codec)
-    end
+    -- The friendly name first, like the audio chip, then the codec for
+    -- anyone who wants it, then what happens to the sound on its way.
+    -- Repeats are left out, so a stereo AAC track reads "Stereo · AAC"
+    -- rather than "Stereo · AAC · Stereo".
+    local _, short_codec = info_details.describe_audio_format(track)
+    local candidates = { info_details.describe_audio_for_people(track), short_codec }
     local output = audio_output.current()
     if output then
-        table.insert(parts, info_details.describe_sound_path(output))
+        table.insert(candidates, info_details.describe_sound_path(output))
+    end
+
+    local parts = {}
+    for index = 1, table.maxn(candidates) do
+        local part = candidates[index]
+        local is_repeat = false
+        for _, earlier in ipairs(parts) do
+            if earlier:find(part or "", 1, true) then
+                is_repeat = true
+            end
+        end
+        if part and part ~= "" and not is_repeat then
+            table.insert(parts, part)
+        end
     end
 
     return { headline = headline, details = table.concat(parts, " · ") }

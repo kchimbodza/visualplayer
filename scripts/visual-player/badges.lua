@@ -78,14 +78,21 @@ local function labels_for_current_file()
         end
     end
 
+    -- Sound is named the way a soundbar would: "Dolby Atmos", "Dolby
+    -- TrueHD", "7.1", or for everyday formats like AAC, just the sound,
+    -- like "Stereo" or "5.1 Surround".
     local sound = info_details.sound_summary()
     if sound then
         if sound.is_atmos then
             table.insert(labels, "Dolby Atmos")
         end
-        table.insert(labels, sound.codec)
-        if sound.channels == "7.1" or sound.channels == "5.1" then
-            table.insert(labels, sound.channels)
+        if sound.brand then
+            table.insert(labels, sound.brand)
+            if sound.channels == "7.1" or sound.channels == "5.1" then
+                table.insert(labels, sound.channels)
+            end
+        else
+            table.insert(labels, sound.for_people)
         end
     end
 

@@ -126,26 +126,20 @@ local function output_control()
     }
 end
 
--- The audio chip, just left of the output chip: the current track's
--- codec and channels, and its number when there's more than one, like
--- "AAC Stereo", "DTS-HD MA 5.1", or "TrueHD Atmos 7.1 · 1/5", so the
--- format is always visible and cycling through tracks shows where you
--- are. It's for information only, so clicking it does nothing. It's
--- hidden only when nothing is playing any sound.
+-- The audio chip, just left of the output chip: the current track named
+-- the way a soundbar or streaming app would, and its number when there's
+-- more than one, like "Stereo", "Dolby Digital 5.1", or "Dolby Atmos 7.1
+-- · 1/5" (see info_details.describe_audio_for_people). It's for
+-- information only, so clicking it does nothing. It's hidden only when
+-- nothing is playing any sound.
 local function audio_control()
-    local sound = info_details.sound_summary()
+    local track = mp.get_property_native("current-tracks/audio")
     local position, count = info_details.audio_track_position()
-    if sound == nil or position == nil then
+    if track == nil or position == nil then
         return nil
     end
 
-    local label = sound.codec
-    if sound.is_atmos then
-        label = label .. " Atmos"
-    end
-    if sound.channels then
-        label = label .. " " .. sound.channels
-    end
+    local label = info_details.describe_audio_for_people(track)
     if count > 1 then
         label = string.format("%s · %d/%d", label, position, count)
     end

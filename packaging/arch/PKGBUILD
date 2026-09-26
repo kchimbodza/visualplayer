@@ -9,7 +9,7 @@
 # using a local folder. See docs/plan.md, section 10.
 
 pkgname=visual-player
-pkgver=0.6.2
+pkgver=0.6.3
 pkgrel=1
 pkgdesc="Media player for HDR video and Dolby Atmos audio, built on mpv"
 arch=('any')

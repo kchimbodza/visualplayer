@@ -343,6 +343,43 @@ local function describe_audio_codec(track)
     return AUDIO_CODEC_NAMES[track.codec] or (track.codec or ""):upper()
 end
 
+-- Names any audio track the way a soundbar's display or a streaming app
+-- would, for the audio chip: "Dolby Digital 5.1", "Dolby Atmos 7.1",
+-- "DTS-HD MA 5.1". Everyday formats like AAC or FLAC describe the sound
+-- instead, since their names mean little to most people: "Stereo",
+-- "5.1 Surround". (An earlier chip showed codec names, like "AC-3 5.1".)
+local BRANDED_AUDIO_NAMES = {
+    truehd = "Dolby TrueHD",
+    eac3 = "Dolby Digital Plus",
+    ac3 = "Dolby Digital",
+}
+
+function info_details.describe_audio_for_people(track)
+    local channels = describe_channels(track)
+
+    local name = BRANDED_AUDIO_NAMES[track.codec]
+    if has_atmos(track) then
+        name = "Dolby Atmos"
+    elseif track.codec == "dts" then
+        name = describe_audio_codec(track)
+    end
+
+    if name then
+        if channels then
+            return name .. " " .. channels
+        end
+        return name
+    end
+
+    if channels == nil then
+        return AUDIO_CODEC_NAMES[track.codec] or "Audio"
+    end
+    if channels == "Stereo" or channels == "Mono" then
+        return channels
+    end
+    return channels .. " Surround"
+end
+
 -- Describes any audio track's format for people, like "Dolby Atmos 7.1",
 -- with a short technical name, like "TrueHD". Used by the info panel and
 -- the track picker, so a track reads the same everywhere.
@@ -392,10 +429,20 @@ function info_details.sound_summary()
         codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or codec
     end
 
+    -- The format's own name, like "Dolby Digital" or "DTS-HD MA", for
+    -- the badges, or nil for everyday formats like AAC, which the badges
+    -- describe by their sound instead ("Stereo").
+    local brand = BRANDED_AUDIO_NAMES[track.codec]
+    if track.codec == "dts" then
+        brand = describe_audio_codec(track)
+    end
+
     return {
         is_atmos = has_atmos(track),
         codec = codec,
+        brand = brand,
         channels = describe_channels(track),
+        for_people = info_details.describe_audio_for_people(track),
     }
 end
 
