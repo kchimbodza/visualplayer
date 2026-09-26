@@ -6,7 +6,7 @@
 # script, and keeps it separate from any personal mpv setup in ~/.config/mpv.
 #
 # Usage:
-#   vplay [FILE_OR_URL ...]
+#   visualplayer [FILE_OR_URL ...]
 
 set -eu
 

@@ -18,7 +18,7 @@ app_folder = $(share_folder)/visual-player
 .PHONY: install uninstall check
 
 install:
-	install -Dm755 bin/vplay "$(bin_folder)/vplay"
+	install -Dm755 bin/visualplayer "$(bin_folder)/visualplayer"
 	install -Dm644 -t "$(app_folder)/config" config/mpv.conf config/input.conf
 	install -Dm644 -t "$(app_folder)/scripts/visual-player" scripts/visual-player/*.lua
 	install -Dm644 -t "$(app_folder)/scripts/visual-player/outputs" scripts/visual-player/outputs/*.lua
@@ -29,7 +29,7 @@ install:
 		"$(share_folder)/icons/hicolor/scalable/apps/visual-player.svg"
 
 uninstall:
-	rm -f "$(bin_folder)/vplay"
+	rm -f "$(bin_folder)/visualplayer"
 	rm -rf "$(app_folder)"
 	rm -f "$(share_folder)/applications/visual-player.desktop"
 	rm -f "$(share_folder)/icons/hicolor/scalable/apps/visual-player.svg"

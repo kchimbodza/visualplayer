@@ -6,7 +6,7 @@
 |---|---|
 | Display name (app menu, start screen) | Visual Player |
 | Package, desktop entry, config and data dirs | `visual-player` |
-| Terminal command | `vplay` |
+| Terminal command | `visualplayer` (renamed from `vplay` in 0.6.1, which was easy to confuse) |
 
 A Linux media player built on mpv, with a custom overlay UI designed for HDR video, lossless and object-based audio, and clear visibility into how media is actually being output.
 
@@ -67,7 +67,7 @@ Phase 0 (section 12) includes a short spike to confirm HDR output on both machin
 ```
 visual-player/
 ├── bin/
-│   └── vplay                  # launcher shell script
+│   └── visualplayer           # launcher shell script
 ├── config/
 │   ├── mpv.conf               # shipped defaults
 │   └── input.conf             # key bindings
@@ -100,7 +100,7 @@ visual-player/
 
 ### Launcher
 
-`bin/vplay` starts mpv with Visual Player's files. It works both when installed (files in `/usr/share/visual-player`) and when run straight from the source folder, which makes development easy.
+`bin/visualplayer` starts mpv with Visual Player's files. It works both when installed (files in `/usr/share/visual-player`) and when run straight from the source folder, which makes development easy.
 
 It passes `--no-config` so mpv doesn't load any config files on its own, then loads them explicitly in a fixed order: Visual Player's defaults (`config/mpv.conf`), then the user's personal settings (`~/.config/visual-player/mpv.conf`, created empty on first run). Loading them in this order guarantees personal settings always win. A plain `--include` of the defaults would have done the opposite, since command-line options override config files.
 
@@ -406,7 +406,7 @@ The app is architecture-independent (Lua, config, fonts, desktop file), so both 
 
 | Path | Contents |
 |---|---|
-| `/usr/bin/vplay` | launcher |
+| `/usr/bin/visualplayer` | launcher |
 | `/usr/share/visual-player/config/` | `mpv.conf`, `input.conf` |
 | `/usr/share/visual-player/scripts/visual-player/` | the Lua script (`main.lua` and modules) |
 | `/usr/share/visual-player/fonts/` | icon font (from Phase 2) |
@@ -642,7 +642,7 @@ Phase 2 complete: version 0.2.0 installed as a package and confirmed on both Nob
 - **Never rely on hover to start listening for clicks.** Each part used to start taking clicks only once the pointer had moved over it. A finger lands and presses at once, so on the PX13's touchscreen the press arrived before anything was listening. `click_area.lua` now keeps one listener always active, reads the pointer at the moment of the press (`pointer.refresh_now()`), and gives the press to the part under it by priority: popups, then picture-in-picture, then the controls, then the video.
 - **Passthrough needs two agreements: the device's and PipeWire's.** Over HDMI (NVIDIA port, card 0), the PX277OLEDMAX listed PCM, AC-3, and DTS, while over DisplayPort it listed only PCM. PipeWire reported `iec958.codecs` (what the output could accept: PCM, DTS, AC3) and `iec958Codecs` in its Props (what it currently allows: only PCM). Passing DTS through then failed with "no target node available", giving silence. Only formats on both the device's list and PipeWire's allowed list are now passed through, and switching passthrough on asks PipeWire to allow the device's formats with `pw-cli set-param`. A monitor listing a format may still not decode it on its own speakers; it may only pass it on to a soundbar.
 - **Passthrough goes straight to the HDMI port, chosen at startup.** With an EZCOO extractor in its Atmos 7.1 mode (after a replug, so the laptop re-read it), mpv sending directly to `alsa/hdmi:CARD=NVidia,DEV=0` produced `spdif-truehd` and `spdif-eac3`, and the Poseidon D80 soundbar showed Dolby Atmos for both; through PipeWire, only AC-3 got through. Taking the port over mid-playback failed: once PipeWire has used the port, it doesn't reliably let go ("Device or resource busy"), even when asked with `pactl suspend-sink` and retried. So the simple rule, as in VLC: the outputs are checked once at startup, before any audio plays, and passthrough uses the direct port from the first moment. Switching it off takes effect immediately; switching it on while playing through PipeWire takes effect next time Visual Player starts, with a note saying so. No direct port means no passthrough.
-- **The launcher starts Visual Player with no file.** Plain mpv with no file prints its usage and quits, so opening from GNOME's app grid did nothing. `vplay` now passes `--idle=once --force-window=yes`, and `idle_screen.lua` shows Visual Player's name and "Drop a video here to play it" until something plays (version 0.6.1).
+- **The launcher starts Visual Player with no file.** Plain mpv with no file prints its usage and quits, so opening from GNOME's app grid did nothing. `visualplayer` now passes `--idle=once --force-window=yes`, and `idle_screen.lua` shows Visual Player's name and "Drop a video here to play it" until something plays (version 0.6.1).
 - **One output choice, shared with the system.** Choosing an output in the popup used to pin mpv to that device, so a later choice in GNOME's Sound Output menu was ignored (the Poseidon D80 chosen in GNOME, Visual Player still on the laptop speakers). The popup now switches the system's output (`pactl set-default-sink`), and Visual Player always follows the system (`audio-device=auto`), apart from passthrough's direct route.
 - **Measure text, don't estimate it.** Estimating widths from the number of characters came out about half as wide again as the real text, leaving gaps in the audio chip and track notice. `draw.estimate_text_width()` now asks mpv to lay the text out in a hidden overlay (`compute_bounds`) and remembers the result.
 - **GNOME calls HDMI connectors "HDMI-1"; Linux calls them "HDMI-A-1".** The Screen row showed just "HDMI-1" until `outputs/display.lua` accepted both.
@@ -721,4 +721,4 @@ The full checklist lives in `docs/testing.md`, with each case's result on Nobara
 - **USB-C detection:** heuristic only. Fall back to "DisplayPort" when uncertain.
 - **Hybrid graphics (NVIDIA plus AMD):** Vulkan decoding works on Nobara. Still to test: playback on an external monitor wired to the NVIDIA GPU, where a different GPU may handle decoding.
 - **Passthrough is untested** until a receiver or soundbar is connected. Sending Atmos to a monitor that can't decode it produces silence or noise, so the app should only offer passthrough for devices that report support for those formats.
-- **Name:** "Visual Player" is a common phrase, so search visibility will be limited. Before publishing, check the AUR, Fedora packages, and Flathub for existing `visual-player` or `vplay` packages or commands.
+- **Name:** "Visual Player" is a common phrase, so search visibility will be limited. Before publishing, check the AUR, Fedora packages, and Flathub for existing `visual-player` or `visualplayer` packages or commands.

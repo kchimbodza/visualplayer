@@ -6,7 +6,7 @@ Comment=Play HDR video and Dolby Atmos audio, and see exactly how it's playing
 Icon=visual-player
 # %F passes local file paths. For network shares opened in GNOME Files,
 # that's the mounted path, which mpv can play directly.
-Exec=vplay -- %F
+Exec=visualplayer -- %F
 Terminal=false
 Categories=AudioVideo;Video;Player;
 Keywords=video;movie;player;hdr;atmos;dolby;mpv;

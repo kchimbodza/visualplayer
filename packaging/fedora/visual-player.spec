@@ -44,7 +44,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %files
 %license LICENSE licenses/tabler-icons.txt licenses/inter.txt
 %doc README.md
-%{_bindir}/vplay
+%{_bindir}/visualplayer
 %{_datadir}/%{name}/
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
@@ -53,6 +53,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 * Sat Sep 26 2026 myviewsontech - 0.6.1-1
 - Opening from the app launcher shows a window instead of quitting, with
   an idle screen until a video is dropped on it
+- The terminal command is now visualplayer, instead of vplay
 
 * Sat Sep 26 2026 myviewsontech - 0.6.0-1
 - Passthrough straight to the HDMI port, chosen at startup, for Dolby

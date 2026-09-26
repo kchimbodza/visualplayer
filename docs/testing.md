@@ -99,7 +99,7 @@ Barco Stinger Bees, plus `samples/test.srt` and
 
 | Case | Nobara | Omarchy |
 |---|---|---|
-| Installs as a package, `vplay` works from anywhere | Pass | Pass |
+| Installs as a package, `visualplayer` works from anywhere | Pass | Pass |
 | App menu entry with icon | Pass | Pass |
 | Opening from the app menu with no file shows the idle screen; dropping a video plays it | | |
 | Open With from the file manager | Pass | |
