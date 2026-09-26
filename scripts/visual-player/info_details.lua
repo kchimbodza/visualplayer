@@ -194,6 +194,26 @@ local function describe_frame_rate()
     return string.format("%.3f fps", fps)
 end
 
+local function is_hdr_transfer(transfer)
+    return transfer == "pq" or transfer == "hlg"
+end
+
+-- True when an HDR file is being shown on a screen that isn't in HDR
+-- mode, so mpv converts it to SDR. That's normal, not a problem, and
+-- worth saying plainly (Phase 0, Omarchy).
+local function is_tone_mapped_to_sdr(source_transfer)
+    if not is_hdr_transfer(source_transfer) then
+        return false
+    end
+
+    local output = mp.get_property_native("video-target-params")
+    if output == nil or output.gamma == nil or output.gamma == "auto" then
+        return false
+    end
+
+    return not is_hdr_transfer(output.gamma)
+end
+
 -- Returns the video row, or nil if the file has no picture.
 function info_details.video()
     local video = mp.get_property_native("video-params")
@@ -212,11 +232,17 @@ function info_details.video()
         dynamic_range = describe_dynamic_range(video.gamma)
     end
 
+    local tone_mapping = nil
+    if is_tone_mapped_to_sdr(video.gamma) then
+        tone_mapping = "Tone mapped to SDR"
+    end
+
     return {
         icon = "movie",
         headline = describe_resolution(width, height) .. " " .. dynamic_range,
         details = join({
             dolby_vision_profile,
+            tone_mapping,
             codec,
             string.format("%d×%d", width, height),
             describe_frame_rate(),
@@ -420,6 +446,68 @@ local function frame_budget_ms()
     return 1000 / fps
 end
 
+-- Shows a bitrate the way people usually write it: "58.6 Mb/s", or
+-- "320 kb/s" for anything under a megabit.
+local function describe_bitrate(bits_per_second)
+    if bits_per_second >= 1e6 then
+        return string.format("%.1f Mb/s", bits_per_second / 1e6)
+    end
+    return string.format("%d kb/s", math.floor(bits_per_second / 1000))
+end
+
+-- The average bitrate most MKV files record for their video track, when
+-- they were made with mkvmerge (found in Phase 3, step 2). The tag may
+-- carry a language suffix, like "BPS-eng".
+local function recorded_video_bitrate()
+    local track = mp.get_property_native("current-tracks/video")
+    if track == nil or track.metadata == nil then
+        return nil
+    end
+    return tonumber(track.metadata.BPS or track.metadata["BPS-eng"])
+end
+
+-- Where the file is coming from. Local files show their container and
+-- recorded bitrate, like "MKV · 58.6 Mb/s". Streams show their format,
+-- the bitrate right now, and how much is buffered ahead.
+local function describe_source()
+    if mp.get_property_bool("demuxer-via-network", false) then
+        local format = (mp.get_property("file-format", ""):match("^[^,]+") or ""):upper()
+        if format == "" then
+            format = "Stream"
+        end
+
+        local bitrate = mp.get_property_number("video-bitrate")
+        local buffered = mp.get_property_number("demuxer-cache-duration")
+
+        local bitrate_text = nil
+        if bitrate and bitrate > 0 then
+            bitrate_text = describe_bitrate(bitrate)
+        end
+
+        local buffered_text = nil
+        if buffered then
+            buffered_text = string.format("%d s buffered", math.floor(buffered))
+        end
+
+        return join({ format, bitrate_text, buffered_text })
+    end
+
+    local extension = mp.get_property("filename", ""):match("%.(%w+)$")
+    local bitrate = recorded_video_bitrate()
+
+    local bitrate_text = nil
+    if bitrate and bitrate > 0 then
+        bitrate_text = describe_bitrate(bitrate)
+    end
+
+    local container = nil
+    if extension then
+        container = extension:upper()
+    end
+
+    return join({ container, bitrate_text })
+end
+
 local function describe_decoding()
     local decoder = mp.get_property("hwdec-current", "")
     if decoder ~= "" and decoder ~= "no" then
@@ -474,7 +562,7 @@ function info_details.status()
             dot = true,
             dot_color = PAUSED_COLOR,
             headline = "Paused",
-            details = join({ describe_decoding(), total_dropped }),
+            details = join({ describe_decoding(), total_dropped, describe_source() }),
         }
     end
 
@@ -492,7 +580,7 @@ function info_details.status()
         dot = true,
         dot_color = SMOOTH_COLOR,
         headline = "Playing smoothly",
-        details = join({ describe_decoding(), total_dropped }),
+        details = join({ describe_decoding(), total_dropped, describe_source() }),
     }
 end
 

@@ -631,8 +631,8 @@ Findings (step 2): the video track in `track-list` reports `dolby-vision-profile
 
 - [x] Step 1: panel shell (`info_panel.lua`, with the wording in `info_details.lua`), docked to the right edge below the clock, toggled by the info button and the `I` key, with the four grouped rows from section 5.5 filled from mpv properties. Replaces the temporary stats overlay on the info button.
 - [x] Step 2: HDR format detection: HDR10, HDR10+, HLG, and Dolby Vision, including its profile, described honestly (profile 7 as "Dolby Vision (HDR10 base layer)"). Always from the source, never the output.
-- [ ] Step 3: status line with plain-language states: green "Playing smoothly", amber when frames drop, red when buffering, with the technical line telling apart "graphics can't keep up" (high render times) from "screen timing is uneven" (low render times, rising mistimed or delayed frames).
-- [ ] Step 4: rows adapt to the file: hide rows that don't apply (no subtitles, audio only), show container instead of bitrate for local files, "Tone mapped to SDR" as a normal state on SDR screens, and refresh at most once a second.
+- [x] Step 3: status line with plain-language states: green "Playing smoothly", amber when frames drop, red when buffering, with the technical line telling apart "graphics can't keep up" (high render times) from "screen timing is uneven" (low render times, rising mistimed or delayed frames).
+- [ ] Step 4: rows adapt to the file (local files show container and recorded bitrate; streams show format, live bitrate, and buffer): hide rows that don't apply (no subtitles, audio only), show container instead of bitrate for local files, "Tone mapped to SDR" as a normal state on SDR screens, and refresh at most once a second.
 
 ### Phase 4 — Outputs
 
