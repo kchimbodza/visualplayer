@@ -21,8 +21,8 @@ install:
 	install -Dm755 bin/vplay "$(bin_folder)/vplay"
 	install -Dm644 -t "$(app_folder)/config" config/mpv.conf config/input.conf
 	install -Dm644 -t "$(app_folder)/scripts/visual-player" scripts/visual-player/*.lua
-	install -Dm644 -t "$(app_folder)/fonts" fonts/tabler-icons.ttf
-	install -Dm644 -t "$(app_folder)/licenses" licenses/tabler-icons.txt
+	install -Dm644 -t "$(app_folder)/fonts" fonts/*.ttf
+	install -Dm644 -t "$(app_folder)/licenses" licenses/*.txt
 	install -Dm644 data/visual-player.desktop "$(share_folder)/applications/visual-player.desktop"
 	install -Dm644 data/icons/visual-player.svg \
 		"$(share_folder)/icons/hicolor/scalable/apps/visual-player.svg"

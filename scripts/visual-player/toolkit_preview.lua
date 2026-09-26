@@ -8,6 +8,7 @@
 
 local draw = require("draw")
 local icons = require("icons")
+local redraw = require("redraw")
 local screen = require("screen")
 
 local toolkit_preview = {}
@@ -179,11 +180,12 @@ end
 
 local function toggle()
     is_visible = not is_visible
-    render()
+    redraw.request()
 end
 
 function toolkit_preview.start()
-    screen.on_change(render)
+    redraw.register(render)
+    screen.on_change(redraw.request)
     mp.add_key_binding("Ctrl+t", "toggle-toolkit-preview", toggle)
 end
 
