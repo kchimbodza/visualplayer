@@ -2,7 +2,7 @@
 --
 -- Shows every icon Visual Player uses, plus sample shapes and text, so we
 -- can check that the icon font loads and that everything is sized
--- correctly on each screen. Press Ctrl+t to hide or show it.
+-- correctly on each screen. Press Ctrl+t to show or hide it.
 --
 -- This file goes away once the real controls arrive.
 
@@ -31,7 +31,10 @@ local WARNING_BACKGROUND = "#633806"
 local WARNING_TEXT = "#FAC775"
 
 local canvas = draw.create_canvas()
-local is_visible = true
+
+-- Hidden by default now that the real interface has started to arrive.
+-- It's still handy as a reference for which icons exist.
+local is_visible = false
 
 local function get_icon_names_in_order()
     local names = {}

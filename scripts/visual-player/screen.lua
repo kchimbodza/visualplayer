@@ -1,9 +1,10 @@
--- Keeps track of the size of the video window and the screen's scaling.
+-- Keeps track of the size of the video window and how big to draw things.
 --
 -- Everything on screen is sized in "design pixels": the size it would be
--- on an ordinary 1080p screen at 100% scaling. screen.pixels() turns
--- those into real pixels for the current window, so the interface looks
--- the same size on a high-resolution laptop screen as on a regular one.
+-- in a window 1080 pixels tall. The interface grows and shrinks with the
+-- window, like mpv's own controls, so it looks the same relative to the
+-- picture whether the window is small, fullscreen at 1080p, or
+-- fullscreen at 4K. screen.pixels() converts design sizes to real pixels.
 
 local screen = {
     width = 0,
@@ -11,9 +12,18 @@ local screen = {
     scale = 1,
 }
 
+-- The window height the interface is designed for.
+local DESIGN_HEIGHT = 1080
+
+-- Small windows shrink the interface, but never below this fraction of
+-- its design size (adjusted for the screen's HiDPI setting), so text
+-- stays readable.
+local SMALLEST_SCALE = 0.6
+
+local hidpi_scale = 1
 local change_listeners = {}
 
--- Converts a size in design pixels into real pixels on this screen.
+-- Converts a size in design pixels into real pixels in this window.
 function screen.pixels(design_pixels)
     return design_pixels * screen.scale
 end
@@ -23,9 +33,15 @@ function screen.is_ready()
     return screen.width > 0 and screen.height > 0
 end
 
--- Registers a function to call whenever the window size or scaling changes.
+-- Registers a function to call whenever the window size or scale changes.
 function screen.on_change(listener)
     table.insert(change_listeners, listener)
+end
+
+local function update_scale()
+    local scale_for_window = screen.height / DESIGN_HEIGHT
+    local smallest_allowed = SMALLEST_SCALE * hidpi_scale
+    screen.scale = math.max(scale_for_window, smallest_allowed)
 end
 
 local function tell_listeners()
@@ -41,17 +57,19 @@ local function on_window_size_changed(_, dimensions)
 
     screen.width = dimensions.w
     screen.height = dimensions.h
+    update_scale()
     tell_listeners()
 end
 
-local function on_scaling_changed(_, scale)
-    screen.scale = scale or 1
+local function on_hidpi_scale_changed(_, scale)
+    hidpi_scale = scale or 1
+    update_scale()
     tell_listeners()
 end
 
 function screen.start()
     mp.observe_property("osd-dimensions", "native", on_window_size_changed)
-    mp.observe_property("display-hidpi-scale", "native", on_scaling_changed)
+    mp.observe_property("display-hidpi-scale", "native", on_hidpi_scale_changed)
 end
 
 return screen

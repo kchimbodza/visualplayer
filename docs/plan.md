@@ -590,12 +590,20 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 
 ### Phase 2 — Core controls
 
-- [ ] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), icon font and `tools/update-icon-font.py`, temporary test card.
-- [ ] Step 2: top bar with title, subtitle, clock, drag-to-move, GNOME window buttons. Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
+- [x] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), redraw limiting (`redraw.lua`), icon and text fonts, temporary test card.
+- [ ] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
 - [ ] Step 3: playback row (play, previous, next, repeat, speed, time).
 - [ ] Step 4: chapter-segmented seek bar with scrubbing and hover preview.
 - [ ] Step 5: tools row and volume slider.
 - [ ] Step 6: auto-hide, and switch to `osc=no` and `border=no`.
+
+### Phase 2 findings
+
+- **Redraw through the limiter, never directly.** Redrawing a detailed overlay on every window-size change dropped 141 to 227 frames per clip during resizes, because it kept mpv's main thread busy. GPU render time stayed low (about 3 ms), so the cost was on the CPU side. Combining redraw requests to at most 30 a second (`redraw.lua`) cut this to about 28 frames even while resizing continuously.
+- **Only redraw when something visible changes.** Mouse movement fires constantly, so interface parts compare their new state with the old before asking for a redraw.
+- **Bundle fonts; don't rely on system defaults.** Nobara's default font is a variable Noto Sans, which mpv's text renderer drew with oddly small digits. Visual Player now ships Inter (regular and bold, OFL licensed) as `osd-font`, downloaded by `tools/update-text-font.py`.
+- **Keep licenses out of `fonts/`.** mpv tries to load every file in the fonts folder as a font, so licenses live in `licenses/`.
+- **mpv draws a stand-in title bar when a window has no border** (its `windowcontrols` feature). Visual Player turns it off with `script-opts-append=osc-windowcontrols=no` once its own top bar is in place.
 
 ### Phase 3 — Info panel
 

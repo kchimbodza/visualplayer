@@ -6,11 +6,15 @@
 local VERSION = "0.2.0-dev"
 
 local playback_log = require("playback_log")
+local pointer = require("pointer")
 local screen = require("screen")
 local toolkit_preview = require("toolkit_preview")
+local top_bar = require("top_bar")
 
 mp.msg.info("Visual Player " .. VERSION .. " started, using " .. mp.get_property("mpv-version"))
 
 screen.start()
+pointer.start()
 playback_log.start()
+top_bar.start()
 toolkit_preview.start()

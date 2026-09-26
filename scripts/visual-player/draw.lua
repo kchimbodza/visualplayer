@@ -81,9 +81,11 @@ function draw.escape_text(text)
     return escaped
 end
 
--- The start and end of every filled shape.
-local function start_shape(color, opacity)
+-- The start and end of every filled shape. A blur above zero softens
+-- the shape's edges by that many pixels.
+local function start_shape(color, opacity, blur)
     return "{\\an7\\pos(0,0)\\bord0\\shad0"
+        .. string.format("\\blur%d", round(blur or 0))
         .. "\\1c"
         .. to_ass_color(color)
         .. "\\1a"
@@ -155,6 +157,10 @@ end
 -- options.color          "#RRGGBB"
 -- options.opacity        0 to 1, default 1
 -- options.corner_radius  pixels, default 0 for square corners
+-- options.blur           pixels, default 0; softens the edges into a
+--                        smooth fade. Blurring costs more to draw than a
+--                        plain shape, so use it for large, rarely changing
+--                        things like backgrounds.
 function draw.rectangle(options)
     local area = options.area
     local width = area.right - area.left
@@ -170,7 +176,7 @@ function draw.rectangle(options)
         path = square_corner_path(area)
     end
 
-    return start_shape(options.color, options.opacity or 1) .. path .. END_SHAPE
+    return start_shape(options.color, options.opacity or 1, options.blur) .. path .. END_SHAPE
 end
 
 -- Draws a filled circle.
@@ -205,6 +211,9 @@ end
 -- options.vertical       "top", "middle", or "bottom" of the anchor
 -- options.outline        outline width in pixels, default 0; helps text
 --                        stay readable over bright video
+-- options.clip           an area { left, top, right, bottom }; any text
+--                        outside it is cut off. Use it to stop long text
+--                        running into something else.
 function draw.text(options)
     local anchor = ANCHOR_NUMBER[options.vertical or "top"][options.align or "left"]
     local bold = 0
@@ -212,11 +221,23 @@ function draw.text(options)
         bold = 1
     end
 
+    local clip = ""
+    if options.clip then
+        clip = string.format(
+            "\\clip(%d,%d,%d,%d)",
+            round(options.clip.left),
+            round(options.clip.top),
+            round(options.clip.right),
+            round(options.clip.bottom)
+        )
+    end
+
     return string.format(
-        "{\\an%d\\pos(%d,%d)\\fs%d\\b%d\\bord%d\\shad0\\1c%s\\1a%s\\3c&H000000&}%s",
+        "{\\an%d\\pos(%d,%d)%s\\fs%d\\b%d\\bord%d\\shad0\\1c%s\\1a%s\\3c&H000000&}%s",
         anchor,
         round(options.x),
         round(options.y),
+        clip,
         round(options.size),
         bold,
         round(options.outline or 0),
