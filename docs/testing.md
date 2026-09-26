@@ -37,7 +37,8 @@ Barco Stinger Bees, plus `samples/test.srt` and
 |---|---|---|
 | Built-in speakers: named, "Stereo downmix from 7.1" on Art | Pass | |
 | Monitor audio over DisplayPort: named PX277OLEDMAX, called DisplayPort | Pass | Not available |
-| Switching outputs in the popup | Pass | |
+| Switching outputs in the popup, also switching the system's output | | |
+| Choosing an output in GNOME moves Visual Player too | | |
 | Passthrough never offered to a stereo-only monitor | Pass | Not available |
 | Passthrough to a soundbar: Dolby Atmos from TrueHD and E-AC-3, Dolby Digital from AC-3 (EZCOO extractor, Poseidon D80) | Pass (plain mpv, direct port) | |
 | Passthrough to a soundbar through Visual Player | | |
@@ -67,6 +68,7 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | Subtitles move above the controls | Pass | |
 | Info panel: all rows, updates within a second | Pass | Pass |
 | Audio & subtitles menu | Pass | |
+| Audio chip shows format and track number; notice appears when cycling tracks | | |
 | Chapters & playlist menu, scrolling | Pass | |
 | Only one popup open at a time | Pass | |
 | Settings: each setting works and is remembered | Pass | |

@@ -285,7 +285,64 @@ local function count_characters(text)
 end
 
 -- Estimates how wide some text will be at a given size, in pixels.
-function draw.estimate_text_width(text, size)
+-- Measures text exactly, by asking mpv to lay it out in a hidden overlay
+-- and report its size, the same way it will be drawn. An estimate from
+-- the number of characters was about half as wide again as the real
+-- text, leaving gaps in the audio chip and track notice (Phase 6).
+-- Results are remembered, since the same labels are measured on every
+-- redraw.
+local measuring_overlay = nil
+local measured_widths = {}
+
+local function measure_text_width(text, size, bold)
+    local dimensions = mp.get_property_native("osd-dimensions") or {}
+    if (dimensions.w or 0) <= 0 or (dimensions.h or 0) <= 0 then
+        return nil
+    end
+
+    local bold_number = 0
+    if bold then
+        bold_number = 1
+    end
+
+    local key = string.format("%d|%d|%s", round(size), bold_number, text)
+    if measured_widths[key] then
+        return measured_widths[key]
+    end
+
+    if measuring_overlay == nil then
+        measuring_overlay = mp.create_osd_overlay("ass-events")
+        measuring_overlay.hidden = true
+        measuring_overlay.compute_bounds = true
+    end
+
+    measuring_overlay.res_x = dimensions.w
+    measuring_overlay.res_y = dimensions.h
+    measuring_overlay.data = string.format(
+        "{\\an7\\pos(0,0)\\fs%d\\b%d\\bord0\\shad0}%s",
+        round(size),
+        bold_number,
+        draw.escape_text(text)
+    )
+
+    local bounds = measuring_overlay:update()
+    if bounds == nil or bounds.x1 == nil or bounds.x0 == nil then
+        return nil
+    end
+
+    local width = bounds.x1 - bounds.x0
+    measured_widths[key] = width
+    return width
+end
+
+-- How wide text will be when drawn, in pixels. Measured exactly when the
+-- window is ready, and estimated from the number of characters before.
+-- Pass bold = true for bold text, which is wider.
+function draw.estimate_text_width(text, size, bold)
+    local measured = measure_text_width(text, size, bold)
+    if measured then
+        return measured
+    end
     return count_characters(text) * size * AVERAGE_CHARACTER_WIDTH
 end
 

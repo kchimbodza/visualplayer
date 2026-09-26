@@ -12,6 +12,7 @@
 
 local audio_output = require("outputs.audio")
 local draw = require("draw")
+local info_details = require("info_details")
 local info_panel = require("info_panel")
 local menus = require("menus")
 local settings_menu = require("settings_menu")
@@ -120,6 +121,28 @@ local function output_control()
         label = label,
         look = "normal",
         action = output_popup.toggle,
+    }
+end
+
+-- The audio chip, just left of the output chip: the current track's
+-- format and number, like "Dolby Digital 5.1 · 2/5", so cycling through
+-- tracks always shows where you are. Clicking it opens the audio and
+-- subtitles menu. Files with only one audio track don't show it, since
+-- there's nothing to cycle through.
+local function audio_control()
+    local track = mp.get_property_native("current-tracks/audio")
+    local position, count = info_details.audio_track_position()
+    if track == nil or position == nil or count < 2 then
+        return nil
+    end
+
+    local format = info_details.describe_audio_format(track)
+    return {
+        name = "audio-track",
+        label = string.format("%s · %d/%d", format, position, count),
+        outline = true,
+        look = "normal",
+        action = menus.toggle_audio_and_subtitles,
     }
 end
 
@@ -246,11 +269,12 @@ end
 -- Returns the controls to show, in order, split into those on the left
 -- and those on the right.
 function tools_row.get_controls()
-    local right = { output_control() }
-    if is_volume_expanded then
-        table.insert(right, volume_slider_control())
+    local right = {}
+    local audio = audio_control()
+    if audio then
+        table.insert(right, audio)
     end
-    table.insert(right, volume_control())
+    table.insert(right, output_control())
 
     return {
         left = {
@@ -280,6 +304,17 @@ function tools_row.get_controls()
     }
 end
 
+-- The volume icon, and its slider when it's open, for the playback row,
+-- where they sit just right of the speed control, with the slider opening
+-- to the right of the icon.
+function tools_row.volume_controls()
+    local controls = { volume_control() }
+    if is_volume_expanded then
+        table.insert(controls, volume_slider_control())
+    end
+    return controls
+end
+
 -- Shows or hides the volume slider. Returns true if that changed, so a
 -- redraw is needed.
 function tools_row.set_volume_expanded(expanded)
@@ -296,6 +331,7 @@ function tools_row.start()
 
     local properties_that_change_the_row = {
         "sid",
+        "aid",
         "track-list",
         "volume",
         "mute",

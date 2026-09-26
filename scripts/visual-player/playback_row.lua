@@ -13,6 +13,7 @@
 
 local redraw = require("redraw")
 local time_format = require("time_format")
+local tools_row = require("tools_row")
 
 local playback_row = {}
 
@@ -208,14 +209,22 @@ end
 -- Returns the controls to show, in order, split into those on the left
 -- and those on the right.
 function playback_row.get_controls()
+    local left = {
+        play_pause_control(),
+        skip_control("previous", "player-skip-back", -1),
+        skip_control("next", "player-skip-forward", 1),
+        repeat_control(),
+        speed_control(),
+    }
+
+    -- The volume sits just right of the speed control, with its slider
+    -- opening further right (the controls themselves live in tools_row.lua).
+    for _, control in ipairs(tools_row.volume_controls()) do
+        table.insert(left, control)
+    end
+
     return {
-        left = {
-            play_pause_control(),
-            skip_control("previous", "player-skip-back", -1),
-            skip_control("next", "player-skip-forward", 1),
-            repeat_control(),
-            speed_control(),
-        },
+        left = left,
         right = {
             time_control(),
         },

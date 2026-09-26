@@ -298,6 +298,28 @@ local function add_control(item)
         add_hover_highlight(area, control)
     end
 
+    -- Outlined controls, like the audio chip, get a thin border in the
+    -- same style as the format badges.
+    if control.outline then
+        local height = area.bottom - area.top
+        canvas:add(draw.rectangle({
+            area = {
+                left = area.left,
+                top = area.top + height * 0.15,
+                right = area.right,
+                bottom = area.bottom - height * 0.15,
+            },
+            color = style.BACKGROUND_COLOR,
+            opacity = 0,
+            corner_radius = screen.pixels(6),
+            outline = {
+                width = math.max(1, screen.pixels(1)),
+                color = style.TEXT_COLOR,
+                opacity = 0.5 * opacity,
+            },
+        }))
+    end
+
     local text_left = area.left + screen.pixels(LABEL_PADDING)
 
     if control.icon then

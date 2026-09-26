@@ -131,13 +131,12 @@ local function set_if_different(property, value)
     end
 end
 
--- Goes back to playing through PipeWire, decoding as usual.
-local function use_pipewire(output)
+-- Goes back to playing through PipeWire, decoding as usual, following
+-- the system's output (see audio_output.switch_to).
+local function use_pipewire()
     if audio_output.direct_route_name() then
         audio_output.stop_direct_route()
-        if output and output.mpv_name then
-            set_if_different("audio-device", output.mpv_name)
-        end
+        set_if_different("audio-device", "auto")
     end
     set_if_different("audio-spdif", "")
 end
@@ -146,7 +145,7 @@ end
 -- device lists when passthrough is on, and through PipeWire otherwise.
 local function apply(output)
     if not passthrough.is_on(output) then
-        use_pipewire(output)
+        use_pipewire()
         return
     end
 
@@ -195,10 +194,17 @@ end
 
 -- A short list of the formats a device can decode, for showing people,
 -- like "TrueHD, E-AC-3, DTS-HD".
+-- Listed best first, rather than in the device's own order.
+local FORMAT_ORDER = { "truehd", "eac3", "dts-hd", "ac3", "dts" }
+
 function passthrough.describe_formats(output)
     local described = {}
-    for _, format in ipairs(output.passthrough_formats or {}) do
-        table.insert(described, FRIENDLY_NAMES[format] or format)
+    for _, format in ipairs(FORMAT_ORDER) do
+        for _, device_format in ipairs(output.passthrough_formats or {}) do
+            if device_format == format then
+                table.insert(described, FRIENDLY_NAMES[format])
+            end
+        end
     end
     return table.concat(described, ", ")
 end

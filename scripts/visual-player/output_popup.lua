@@ -106,7 +106,17 @@ local function calculate_layout()
     local height = padding * 2 + header_height + screen.pixels(DIVIDER_GAP * 2)
         + rows_height + switch_height
 
-    local width = math.min(screen.pixels(WIDTH), screen.width - padding * 2)
+    -- Wide enough for the passthrough switch's list of formats, so it's
+    -- never cut off (it was, at "TrueHI", in Phase 6).
+    local width = screen.pixels(WIDTH)
+    if has_passthrough_switch then
+        local formats = passthrough.describe_formats(audio_output.current())
+        local switch_text = "Passthrough · " .. formats
+        local needed = draw.estimate_text_width(switch_text, screen.pixels(ROW_TEXT_SIZE))
+            + screen.pixels(40) + padding * 3
+        width = math.max(width, needed)
+    end
+    width = math.min(width, screen.width - padding * 2)
     local panel = {
         left = anchor_right - width,
         top = anchor_bottom - height,

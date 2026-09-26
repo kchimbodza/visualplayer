@@ -50,7 +50,11 @@ end
 -- /sys/class/drm/card1-DP-3 for "DP-3".
 local function find_connector_folder(connector)
     for _, name in ipairs(utils.readdir("/sys/class/drm", "dirs") or {}) do
-        if name:match("^card%d+%-(.+)$") == connector then
+        -- GNOME and mpv call HDMI connectors "HDMI-1", while Linux names
+        -- them "HDMI-A-1" (Phase 6), so both are accepted.
+        local linux_name = name:match("^card%d+%-(.+)$")
+        local short_name = linux_name and linux_name:gsub("^HDMI%-A%-", "HDMI-")
+        if linux_name == connector or short_name == connector then
             return "/sys/class/drm/" .. name
         end
     end

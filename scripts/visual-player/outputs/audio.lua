@@ -76,10 +76,6 @@ function audio_output.list()
     return all_outputs
 end
 
--- Sends the sound to a different output, by its mpv name.
-function audio_output.switch_to(mpv_name)
-    mp.set_property("audio-device", mpv_name)
-end
 
 -- Registers a function to call whenever the output's details change.
 function audio_output.on_change(listener)
@@ -391,6 +387,33 @@ update = function()
         capture_stdout = true,
         playback_only = false,
     }, on_pw_dump_finished)
+end
+
+-- Switches the sound to another output, by making it the system's
+-- output, exactly as choosing it in GNOME's Sound Output menu does, and
+-- following the system's choice. Pinning mpv to the chosen device made
+-- the player and the system disagree: after choosing the speakers in the
+-- popup, choosing Bluetooth in GNOME left Visual Player on the speakers
+-- (Phase 6). With one shared choice, they can't drift apart.
+--
+-- It's defined down here, below update(), since Lua only finds a local
+-- function defined above the one using it.
+function audio_output.switch_to(mpv_name)
+    local pipewire_name = mpv_name:match("^[^/]+/(.+)$")
+    if pipewire_name then
+        mp.command_native({
+            name = "subprocess",
+            args = { "pactl", "set-default-sink", pipewire_name },
+            playback_only = false,
+            capture_stdout = true,
+            capture_stderr = true,
+        })
+    end
+
+    if mp.get_property("audio-device") ~= "auto" then
+        mp.set_property("audio-device", "auto")
+    end
+    update()
 end
 
 -- Checks the outputs again straight away, for example after changing

@@ -399,6 +399,27 @@ function info_details.sound_summary()
     }
 end
 
+-- Where the current audio track sits among the file's audio tracks, like
+-- 2 and 5 for "2 of 5". Returns nil when nothing is playing any sound.
+function info_details.audio_track_position()
+    local current = mp.get_property_native("current-tracks/audio")
+    if current == nil then
+        return nil
+    end
+
+    local count = 0
+    local position = nil
+    for _, track in ipairs(mp.get_property_native("track-list") or {}) do
+        if track.type == "audio" then
+            count = count + 1
+            if track.id == current.id then
+                position = count
+            end
+        end
+    end
+    return position, count
+end
+
 -- Returns the audio row, or nil if nothing is playing any sound.
 function info_details.audio()
     local track = mp.get_property_native("current-tracks/audio")
