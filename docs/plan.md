@@ -663,21 +663,23 @@ Findings (step 1, Nobara): PipeWire reports each output's `audio.channels` (2 fo
 
   Findings (step 3, Nobara): EDID files in `/sys/class/drm/card1-DP-3/edid` report a size of 0 but contain 384 readable bytes. mpv provides `display-width` and `display-height`, but they gave 3340×3240 on the 2880×1620 laptop screen, so the native resolution is read from the connector's `modes` file instead (first line). Also, with `window-dragging=no`, mpv ignores `begin-vo-dragging` too, so the top bar switches `window-dragging` on only while the pointer is over it. The laptop's USB-C port 1 has a partner connected but lists no alternate modes, so USB-C DisplayPort can't be confirmed there; the Screen row then says just "DisplayPort" rather than guessing.
 - [x] Step 4: output popup (`output_popup.lua`, slim design above the playback row): current output with a colored sound-path line, and every output with a check on the current one; clicking one switches to it. Opened from the chip or `o`; closed by clicking outside, the chip, or Esc.
-- [ ] Step 5: passthrough per device (`outputs/passthrough.lua`), remembered in `~/.config/visual-player/devices.json`. Offered only when a device's own report lists formats it can decode (AC-3, E-AC-3, DTS, DTS-HD, TrueHD, listed by the kernel as "MLP"), and only those formats are passed through. The popup gets a Passthrough switch for such devices; the Output row says "Accepts stereo only" for screens without surround formats, and "Can't pass ... through" when passthrough is on but the file's format isn't one the device takes.
+- [x] Step 5: passthrough per device (`outputs/passthrough.lua`), remembered in `~/.config/visual-player/devices.json`. Offered only when a device's own report lists formats it can decode (AC-3, E-AC-3, DTS, DTS-HD, TrueHD, listed by the kernel as "MLP"), and only those formats are passed through. The popup gets a Passthrough switch for such devices; the Output row says "Accepts stereo only" for screens without surround formats, and "Can't pass ... through" when passthrough is on but the file's format isn't one the device takes.
 
   Findings (step 5, Nobara): the PX277OLEDMAX reports a single format, 2-channel LPCM at 44.1 or 48 kHz, so passthrough is never offered for it. **The actual bitstream to a receiver is untested** until one is connected.
 
+Phase 4 complete: version 0.4.0, confirmed on Nobara. Still to test when hardware is available: passthrough to a receiver or soundbar, and a Bluetooth output with its codec.
+
 ### Phase 5 — Menus and polish
 
-- [ ] Touch screens and control size (section 5.9): taps as clicks, a Normal, Large, and Extra large control size with Large chosen automatically for touchscreens, touch versions of hover behaviors, and a longer hide delay after touches.
+- [ ] Touch screens and control size (section 5.9): taps as clicks, a Normal, Large, and Extra large control size with Large chosen automatically for touchscreens, touch versions of hover behaviors, and a longer hide delay after touches. Neither Nobara (touchpad only) nor the Framework 13 has a touchscreen, so the control size setting is tested with a mouse, and the touch behaviors stay untested until a touchscreen is available.
 
 - [ ] Picture-in-picture: one key or button shrinks the window to about a quarter of the screen's width in a corner and keeps it on top (mpv's `ontop`), with a minimal interface of play/pause, return to full size, and close. The 240p minimum still applies.
 
 - [ ] Subtitle and audio track pickers.
 - [ ] Chapters and playlist menu.
-- [ ] Settings menu (hwdec, passthrough formats, auto-hide delay, UI scale).
-- [ ] Rotation with confirmation.
-- [ ] Animations (fade in/out) kept subtle.
+- [ ] Settings menu (hardware decoding, auto-hide delay, control size, remember window size).
+- [x] Rotation with confirmation (done in Phase 2, step 5).
+- [x] Animations (fade in/out) kept subtle (done in Phase 2, step 6).
 
 ### Phase 6 — Release
 

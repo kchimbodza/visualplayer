@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -50,6 +50,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sat Sep 26 2026 myviewsontech - 0.4.0-1
+- Outputs: sound and screen detection with real device names, HDMI and
+  DisplayPort told apart, downmix reporting, an output popup for
+  switching devices, and passthrough offered only where it works
+
 * Sat Sep 26 2026 myviewsontech - 0.3.0-1
 - Info panel: video, audio, subtitles, and a plain-language status line,
   with Dolby Vision profiles, tone mapping, and source details

@@ -3,7 +3,7 @@
 -- mpv loads this file first. It starts each part of Visual Player in turn.
 -- The parts themselves live in their own files next to this one.
 
-local VERSION = "0.4.0-dev"
+local VERSION = "0.4.0"
 
 local audio_output = require("outputs.audio")
 local passthrough = require("outputs.passthrough")
