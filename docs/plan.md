@@ -271,7 +271,11 @@ Rules:
 
 ### 5.7 Icons
 
-Bundle an icon font (Tabler Icons, MIT licensed, matches the mockups) and render glyphs through ASS with `\fn`. Map names to codepoints in `icons.lua`.
+Bundle an icon font (Tabler Icons, MIT licensed, matches the mockups) and render glyphs through ASS with `\fn`.
+
+- `tools/update-icon-font.py` downloads a Tabler release from npm, reads each icon's character code from its stylesheet, trims the font to only the icons listed in `NEEDED_ICONS` (when fontTools is installed), and writes `scripts/visual-player/icons.lua`. The font and `icons.lua` are committed, so building the app never needs the internet.
+- The launcher passes `--osd-fonts-dir` so the on-screen display finds the bundled font without installing it system-wide, where it would clutter font menus.
+- To add an icon: add its name to `NEEDED_ICONS` and run the script again.
 
 ### 5.8 Rotation
 
@@ -586,11 +590,12 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 
 ### Phase 2 — Core controls
 
-- [ ] Rendering helpers: rounded rects, pills, text, icons.
-- [ ] Layout engine with hit testing and auto-hide.
-- [ ] Playback row, chapter-segmented seek bar with scrubbing and hover preview.
-- [ ] Tools row and volume slider.
-- [ ] Top bar with title, subtitle, clock, drag-to-move, GNOME window buttons.
+- [ ] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), icon font and `tools/update-icon-font.py`, temporary test card.
+- [ ] Step 2: top bar with title, subtitle, clock, drag-to-move, GNOME window buttons. Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
+- [ ] Step 3: playback row (play, previous, next, repeat, speed, time).
+- [ ] Step 4: chapter-segmented seek bar with scrubbing and hover preview.
+- [ ] Step 5: tools row and volume slider.
+- [ ] Step 6: auto-hide, and switch to `osc=no` and `border=no`.
 
 ### Phase 3 — Info panel
 

@@ -44,6 +44,9 @@ fi
 # load them ourselves in a fixed order: Visual Player's defaults first,
 # then personal settings, so personal settings always win.
 #
+# --osd-fonts-dir lets the on-screen display use the bundled icon font
+# without installing it system-wide, where it would clutter font menus.
+#
 # --wayland-app-id must match the desktop entry name, so the dock and task
 # switcher show Visual Player's name and icon instead of mpv's.
 exec mpv \
@@ -53,5 +56,6 @@ exec mpv \
     --include="$user_settings" \
     --input-conf="$app_folder/config/input.conf" \
     --script="$app_folder/scripts/visual-player" \
+    --osd-fonts-dir="$app_folder/fonts" \
     --wayland-app-id=visual-player \
     "$@"
