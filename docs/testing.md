@@ -28,7 +28,7 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | Dolby Vision profile 7 (Art): "HDR10 base layer" | Pass | |
 | Dolby Vision profile 8 (Jellyfish): "Profile 8" | Pass | |
 | 4K HEVC hardware decoding | Pass (Vulkan) | Pass (VA-API) |
-| 4K AV1 hardware decoding | | |
+| 4K AV1 hardware decoding | | Pass (VA-API, 0 dropped) |
 | Status line: smooth, dropping frames with the right cause, paused | Pass | |
 
 ## Sound

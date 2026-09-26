@@ -345,9 +345,8 @@ end
 
 -- Names any audio track the way a soundbar's display or a streaming app
 -- would, for the audio chip: "Dolby Digital 5.1", "Dolby Atmos 7.1",
--- "DTS-HD MA 5.1". Everyday formats like AAC or FLAC describe the sound
--- instead, since their names mean little to most people: "Stereo",
--- "5.1 Surround". (An earlier chip showed codec names, like "AC-3 5.1".)
+-- "DTS-HD MA 5.1", or for everyday formats, "Opus Stereo" or "AAC 5.1".
+-- (An earlier chip showed technical names, like "AC-3 5.1".)
 local BRANDED_AUDIO_NAMES = {
     truehd = "Dolby TrueHD",
     eac3 = "Dolby Digital Plus",
@@ -371,13 +370,14 @@ function info_details.describe_audio_for_people(track)
         return name
     end
 
-    if channels == nil then
-        return AUDIO_CODEC_NAMES[track.codec] or "Audio"
+    -- Everyday formats: the codec's name with the channels, like "Opus
+    -- Stereo" or "AAC 5.1", so the format is always named. ("Stereo" on
+    -- its own said how many channels, but not what the audio was.)
+    local codec_name = AUDIO_CODEC_NAMES[track.codec] or (track.codec or "Audio"):upper()
+    if channels then
+        return codec_name .. " " .. channels
     end
-    if channels == "Stereo" or channels == "Mono" then
-        return channels
-    end
-    return channels .. " Surround"
+    return codec_name
 end
 
 -- Describes any audio track's format for people, like "Dolby Atmos 7.1",
@@ -429,19 +429,24 @@ function info_details.sound_summary()
         codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or codec
     end
 
-    -- The format's own name, like "Dolby Digital" or "DTS-HD MA", for
-    -- the badges, or nil for everyday formats like AAC, which the badges
-    -- describe by their sound instead ("Stereo").
+    -- The format's name with its channels, without Atmos, for the badge
+    -- after the Atmos badge: "Dolby TrueHD 7.1".
     local brand = BRANDED_AUDIO_NAMES[track.codec]
     if track.codec == "dts" then
         brand = describe_audio_codec(track)
+    end
+    local channels = describe_channels(track)
+    local format_with_channels = brand
+    if brand and channels then
+        format_with_channels = brand .. " " .. channels
     end
 
     return {
         is_atmos = has_atmos(track),
         codec = codec,
         brand = brand,
-        channels = describe_channels(track),
+        format_with_channels = format_with_channels,
+        channels = channels,
         for_people = info_details.describe_audio_for_people(track),
     }
 end
