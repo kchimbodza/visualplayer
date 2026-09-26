@@ -54,7 +54,15 @@ fi
 # no file, as when opened from the app launcher, and close as usual once
 # playback finishes. Without them, mpv with no file just printed its
 # usage and quit, so the launcher seemed to do nothing (Phase 6).
+# Every run saves mpv's full log, however Visual Player was opened (the
+# terminal, the app launcher, or Open With), replacing the previous run's,
+# so there's always a log of the last video watched to look at when
+# something goes wrong.
+log_folder="${XDG_STATE_HOME:-$HOME/.local/state}/visual-player"
+mkdir -p "$log_folder"
+
 exec mpv \
+    --log-file="$log_folder/last.log" \
     --idle=once \
     --force-window=yes \
     --no-config \

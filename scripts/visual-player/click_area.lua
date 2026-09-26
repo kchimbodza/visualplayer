@@ -7,6 +7,9 @@
 -- where the pointer is right now and lets every part update, then gives
 -- the press to the part under it with the highest priority.
 --
+-- A press where no part of the interface is, on the picture itself,
+-- starts moving the window.
+--
 -- Reading the pointer at the moment of the press matters for touch. An
 -- earlier version only started listening once the pointer had moved over
 -- a part. A mouse always moves before clicking, but a finger lands and
@@ -39,6 +42,9 @@ local areas = {}
 -- even if the pointer has moved off it by then.
 local pressed_area = nil
 
+-- True while a press on the picture is moving the window.
+local is_dragging_window = false
+
 function click_area.create(name, handlers)
     local area = {
         name = name,
@@ -70,16 +76,38 @@ end
 
 local function on_left_button(event)
     if event.event == "down" then
+        -- A drag hands the pointer to the desktop, so its release may never
+        -- arrive; tidy up after one here instead.
+        if is_dragging_window then
+            is_dragging_window = false
+            mp.set_property_bool("window-dragging", false)
+        end
         pointer.set_pressed(true)
         pressed_area = find_area_under_pointer()
         if pressed_area then
             pressed_area.handlers.on_click()
+        elseif pointer.is_over_window then
+            -- A press on the picture itself, away from every control,
+            -- moves the window, as in most players. (It used to be only
+            -- the top bar.) With touch controls on, taps on the picture
+            -- belong to video_taps.lua instead, which claims them first.
+            --
+            -- Moving the window needs mpv's window-dragging on, which is
+            -- normally off so it can't fight the seek bar (see
+            -- top_bar.lua), so it's switched on for this press only.
+            is_dragging_window = true
+            mp.set_property_bool("window-dragging", true)
+            mp.commandv("begin-vo-dragging")
         end
     elseif event.event == "up" then
         if pressed_area and pressed_area.handlers.on_release then
             pressed_area.handlers.on_release()
         end
         pressed_area = nil
+        if is_dragging_window then
+            is_dragging_window = false
+            mp.set_property_bool("window-dragging", false)
+        end
         pointer.set_pressed(false)
     end
 end
