@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.3
+Version:        0.6.4
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -54,6 +54,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sat Sep 26 2026 myviewsontech - 0.6.4-1
+- Every audio format is named with its channels on the audio chip and
+  badges, like "Opus Stereo" or "Dolby Digital 5.1"
+
 * Sat Sep 26 2026 myviewsontech - 0.6.3-1
 - Idle screen with a welcome line, the picture and sound formats Visual
   Player handles, and a hint to drop a video on the window
