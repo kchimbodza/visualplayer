@@ -8,12 +8,13 @@
 -- kind appears here: the volume slider, which has a "slider" table
 -- describing how to draw it and how to respond to dragging.
 --
--- Menu, settings, and the output chip open panels that arrive in later
--- phases, so for now they show a short note saying when.
+-- Menu and settings open panels that arrive in Phase 5, so for now they
+-- show a short note saying when.
 
 local audio_output = require("outputs.audio")
 local draw = require("draw")
 local info_panel = require("info_panel")
+local output_popup = require("output_popup")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -110,7 +111,7 @@ end
 -- The output chip's icon and short label for each kind of output, like
 -- "DP" with a monitor icon. Bluetooth shows its codec instead, since
 -- that says the most about the sound. Details come from
--- outputs/audio.lua; the full output popup arrives in Phase 4, step 4.
+-- outputs/audio.lua. Clicking the chip opens the output popup.
 local OUTPUT_ICON_AND_LABEL = {
     hdmi = { "device-tv", "HDMI" },
     displayport = { "device-desktop", "DP" },
@@ -140,9 +141,7 @@ local function output_control()
         icon = icon,
         label = label,
         look = "normal",
-        action = function()
-            show_note("The output menu arrives in Phase 4")
-        end,
+        action = output_popup.toggle,
     }
 end
 

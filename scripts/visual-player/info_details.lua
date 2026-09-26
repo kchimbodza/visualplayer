@@ -367,7 +367,7 @@ local OUTPUT_ICONS = {
 -- in Phase 0). So the file's channels are compared with the fewest
 -- channels anywhere along the way: what mpv sends, and what the output
 -- accepts.
-local function describe_sound_path(output)
+function info_details.describe_sound_path(output)
     local track = mp.get_property_native("current-tracks/audio")
     local sent = mp.get_property_native("audio-out-params") or {}
 
@@ -381,11 +381,16 @@ local function describe_sound_path(output)
         return nil
     end
 
+    -- Either number can be missing: mpv briefly has no "channels sent"
+    -- while it restarts audio after switching outputs. Each is checked on
+    -- its own, since a loop over a list with a gap in it can stop early
+    -- (that showed a stereo monitor as "Full 7.1" in Phase 4, step 4).
     local fewest = in_file
-    for _, count in ipairs({ sent["channel-count"], output.channels }) do
-        if count and count < fewest then
-            fewest = count
-        end
+    if sent["channel-count"] and sent["channel-count"] < fewest then
+        fewest = sent["channel-count"]
+    end
+    if output.channels and output.channels < fewest then
+        fewest = output.channels
     end
 
     if fewest < in_file then
@@ -419,7 +424,7 @@ function info_details.output()
     return {
         icon = OUTPUT_ICONS[output.kind] or "volume",
         headline = output.name,
-        details = join({ kind, describe_sound_path(output) }),
+        details = join({ kind, info_details.describe_sound_path(output) }),
     }
 end
 

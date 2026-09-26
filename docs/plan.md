@@ -621,6 +621,8 @@ Phase 2 complete: version 0.2.0 installed as a package and confirmed on both Nob
 - **For smooth scrubbing, send the next seek only when the last one finishes** (mpv's `playback-restart` event), always to the pointer's latest position. Seeking on a fixed timer made mpv discard half-decoded 4K frames. While dragging, redraws run at up to 60 a second.
 - **Keep expensive, rarely changing drawings on their own layer.** The blurred background sits on a canvas underneath (`layer = -1`) and only redraws when the window size changes, so frequent redraws of the controls on top stay cheap.
 - **Lift subtitles above the controls while they're showing.** mpv doesn't know about Visual Player's controls, so subtitles sat behind them. `bottom_controls.lua` sets `sub-pos` to just above the controls while they're visible and puts it back when they hide, never lower than the person's own setting.
+- **Never loop over a list that might have gaps.** Lua's `ipairs` stops at the first missing value. It blanked details lines, and showed a stereo monitor as "Full 7.1" when mpv briefly had no channel count while switching outputs. Check optional values one by one, or loop to `table.maxn`.
+- **The output popup is only about sound.** A screen line under the sound device's name read as if it described that device, so it was removed; the info panel's Screen row covers the picture.
 - **Move subtitles above the controls while they show.** mpv places subtitles near the bottom, right where the controls are. `bottom_controls.lua` sets `sub-pos` to just above the playback row while the controls are visible, and restores the original value when they hide.
 - **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
 - **mpv draws a stand-in title bar when a window has no border** (its `windowcontrols` feature). Visual Player turns it off with `script-opts-append=osc-windowcontrols=no` once its own top bar is in place.
@@ -642,10 +644,10 @@ Findings (step 1, Nobara): PipeWire reports each output's `audio.channels` (2 fo
 
 - [x] Step 1: audio output detection (`outputs/audio.lua`): kind (Bluetooth, HDMI, DisplayPort, USB, speakers), name from the screen's report, Bluetooth codec, and channel count, via `pw-dump` in the background when outputs change. Feeds the output chip.
 - [x] Step 2: downmix and passthrough reporting, comparing the file's channels with the fewest along the way (what mpv sends and what the output accepts), shown on a new Output row in the info panel.
-- [ ] Step 3: display details (`outputs/display.lua`) on a new Screen row: the screen's name from its EDID, connection (HDMI, DisplayPort, or USB-C DisplayPort when confirmed), resolution, refresh rate, and HDR state.
+- [x] Step 3: display details (`outputs/display.lua`) on a new Screen row: the screen's name from its EDID, connection (HDMI, DisplayPort, or USB-C DisplayPort when confirmed), resolution, refresh rate, and HDR state.
 
   Findings (step 3, Nobara): EDID files in `/sys/class/drm/card1-DP-3/edid` report a size of 0 but contain 384 readable bytes. mpv provides `display-width` and `display-height`, but they gave 3340×3240 on the 2880×1620 laptop screen, so the native resolution is read from the connector's `modes` file instead (first line). Also, with `window-dragging=no`, mpv ignores `begin-vo-dragging` too, so the top bar switches `window-dragging` on only while the pointer is over it. The laptop's USB-C port 1 has a partner connected but lists no alternate modes, so USB-C DisplayPort can't be confirmed there; the Screen row then says just "DisplayPort" rather than guessing.
-- [ ] Step 4: output chip popup (slim design, above the playback row) with device switching.
+- [ ] Step 4: output popup (`output_popup.lua`, slim design above the playback row): current output with a colored sound-path line, and every output with a check on the current one; clicking one switches to it. Opened from the chip or `o`; closed by clicking outside, the chip, or Esc.
 - [ ] Step 5: passthrough per device, remembered between sessions. Needs a receiver to test.
 
 ### Phase 5 — Menus and polish

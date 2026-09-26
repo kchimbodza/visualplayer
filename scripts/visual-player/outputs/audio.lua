@@ -40,6 +40,11 @@ local BLUETOOTH_CODEC_NAMES = {
 --   codec      the Bluetooth codec, like "LDAC", if it's Bluetooth
 local current_output = nil
 
+-- Every output PipeWire knows about, described the same way, plus
+-- mpv_name: what mpv calls it, like "pipewire/alsa_output...". Used by
+-- the output popup's list. The one in use has is_current set.
+local all_outputs = {}
+
 local change_listeners = {}
 
 -- Only one pw-dump runs at a time. If something changes while one is
@@ -50,6 +55,15 @@ local is_another_update_needed = false
 
 function audio_output.current()
     return current_output
+end
+
+function audio_output.list()
+    return all_outputs
+end
+
+-- Sends the sound to a different output, by its mpv name.
+function audio_output.switch_to(mpv_name)
+    mp.set_property("audio-device", mpv_name)
 end
 
 -- Registers a function to call whenever the output's details change.
@@ -164,7 +178,9 @@ local function output_name_in_use(objects)
     return device:match("^[^/]+/(.+)$")
 end
 
-local function find_output(objects, wanted_name)
+-- Describes every audio output PipeWire knows about, marking the one
+-- with the wanted name as the one in use.
+local function describe_all_outputs(objects, wanted_name)
     local devices = {}
     for _, object in ipairs(objects) do
         if object.type == "PipeWire:Interface:Device" then
@@ -172,16 +188,17 @@ local function find_output(objects, wanted_name)
         end
     end
 
+    local outputs = {}
     for _, object in ipairs(objects) do
         local props = (object.info or {}).props or {}
-        if object.type == "PipeWire:Interface:Node"
-            and props["media.class"] == "Audio/Sink"
-            and props["node.name"] == wanted_name
-        then
-            return describe_output(props, devices[props["device.id"]] or {})
+        if object.type == "PipeWire:Interface:Node" and props["media.class"] == "Audio/Sink" then
+            local output = describe_output(props, devices[props["device.id"]] or {})
+            output.mpv_name = "pipewire/" .. (props["node.name"] or "")
+            output.is_current = props["node.name"] == wanted_name
+            table.insert(outputs, output)
         end
     end
-    return nil
+    return outputs
 end
 
 local function describe_for_log(output)
@@ -193,6 +210,18 @@ local function describe_for_log(output)
         table.insert(parts, output.channels .. " channels")
     end
     return output.name .. " (" .. table.concat(parts, ", ") .. ")"
+end
+
+-- The outputs in the list, as one line of text, to notice when a device
+-- is plugged in or removed.
+local last_list_summary = nil
+
+local function summarize_list(outputs)
+    local names = {}
+    for _, output in ipairs(outputs) do
+        table.insert(names, output.mpv_name)
+    end
+    return table.concat(names, "|")
 end
 
 local update
@@ -215,21 +244,34 @@ local function on_pw_dump_finished(success, result)
     end
 
     local wanted_name = output_name_in_use(objects)
-    local output = wanted_name and find_output(objects, wanted_name)
+    all_outputs = describe_all_outputs(objects, wanted_name)
+
+    local output = nil
+    for _, listed in ipairs(all_outputs) do
+        if listed.is_current then
+            output = listed
+        end
+    end
     if output == nil then
         return
     end
 
     -- Only announce real changes. Checks run at several moments, like
     -- playback starting and each file loading, and usually find nothing
-    -- new (Phase 4, step 1 logged every result twice).
+    -- new (Phase 4, step 1 logged every result twice). A change is either
+    -- a different output in use, or a device plugged in or removed.
     local description = describe_for_log(output)
-    if current_output and describe_for_log(current_output) == description then
+    local list_summary = summarize_list(all_outputs)
+    local is_same_output = current_output and describe_for_log(current_output) == description
+    if is_same_output and list_summary == last_list_summary then
         return
     end
 
+    last_list_summary = list_summary
     current_output = output
-    mp.msg.info("Sound is going to: " .. description)
+    if not is_same_output then
+        mp.msg.info("Sound is going to: " .. description)
+    end
 
     for _, listener in ipairs(change_listeners) do
         listener()

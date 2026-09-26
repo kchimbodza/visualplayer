@@ -95,6 +95,12 @@ local function show()
     hide_timer:resume()
 end
 
+-- Shows the controls straight away, for things that open without the
+-- mouse moving, like the output popup opened with the o key.
+function visibility.show_now()
+    show()
+end
+
 local function hide()
     if should_show then
         should_show = false
