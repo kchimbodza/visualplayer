@@ -348,28 +348,164 @@ function info_details.subtitles()
     }
 end
 
--- A first, simple status row. Phase 3, step 3 turns this into the full
--- "Playing smoothly" status line.
-function info_details.status()
-    local headline = "Playing"
-    if mp.get_property_bool("pause", false) then
-        headline = "Paused"
+-- The status row: a colored dot and a plain-language summary of how
+-- playback is going, with the reason underneath when something's wrong.
+-- See docs/plan.md, 5.5, and the frame timing findings from Phase 0.
+
+local SMOOTH_COLOR = "#5DCAA5"
+local WARNING_COLOR = "#EF9F27"
+local PROBLEM_COLOR = "#E24B4A"
+local PAUSED_COLOR = "#9A9A9A"
+
+-- Dropped frames are judged over the last few seconds, not the whole
+-- file, so one bad moment, like a seek or a window drag, clears on its
+-- own. A couple of drops now and then are normal and not worth a
+-- warning.
+local SECONDS_OF_HISTORY = 5
+local DROPS_BEFORE_WARNING = 2
+
+-- When rendering a frame takes more than this share of the time
+-- available for it, the graphics are the likely cause of drops.
+local BUSY_GRAPHICS_SHARE = 0.8
+
+-- Frame counters sampled once a second, newest last.
+local counter_history = {}
+
+local function read_counters()
+    return {
+        decoder_drops = mp.get_property_number("decoder-frame-drop-count", 0),
+        output_drops = mp.get_property_number("frame-drop-count", 0),
+    }
+end
+
+local function sample_counters()
+    table.insert(counter_history, read_counters())
+    while #counter_history > SECONDS_OF_HISTORY + 1 do
+        table.remove(counter_history, 1)
+    end
+end
+
+-- How many frames were dropped over the last few seconds, by the decoder
+-- and on the way to the screen.
+local function recent_drops()
+    local newest = read_counters()
+    local oldest = counter_history[1] or newest
+    return newest.decoder_drops - oldest.decoder_drops, newest.output_drops - oldest.output_drops
+end
+
+-- How long rendering one frame takes on average, in milliseconds, from
+-- mpv's per-pass timings, which are in nanoseconds. Returns nil if mpv
+-- hasn't measured any yet.
+local function render_time_ms()
+    local passes = mp.get_property_native("vo-passes")
+    if passes == nil or passes.fresh == nil or #passes.fresh == 0 then
+        return nil
     end
 
+    local total = 0
+    for _, pass in ipairs(passes.fresh) do
+        total = total + (pass.avg or 0)
+    end
+    return total / 1e6
+end
+
+-- The time available to render each frame, in milliseconds: one frame's
+-- worth of the video's frame rate.
+local function frame_budget_ms()
+    local fps = mp.get_property_number("container-fps")
+        or mp.get_property_number("estimated-vf-fps")
+    if fps == nil or fps <= 0 then
+        return nil
+    end
+    return 1000 / fps
+end
+
+local function describe_decoding()
     local decoder = mp.get_property("hwdec-current", "")
-    local decoding = "Software decoding"
     if decoder ~= "" and decoder ~= "no" then
-        decoding = "Hardware decoding (" .. decoder .. ")"
+        return "Hardware decoding (" .. decoder .. ")"
+    end
+    return "Software decoding"
+end
+
+-- Explains why frames are being dropped, in plain words.
+local function describe_drop_cause(decoder_drops, output_drops)
+    local dropped = string.format(
+        "%d dropped in %d s",
+        decoder_drops + output_drops,
+        SECONDS_OF_HISTORY
+    )
+
+    if decoder_drops > 0 then
+        return join({ "Decoding can't keep up", describe_decoding(), dropped })
     end
 
-    local dropped = mp.get_property_number("frame-drop-count", 0)
-    local dropped_text = string.format("%d dropped", dropped)
+    local render_ms = render_time_ms()
+    local budget_ms = frame_budget_ms()
+    if render_ms and budget_ms and render_ms > budget_ms * BUSY_GRAPHICS_SHARE then
+        local timing = string.format("%.1f of %.1f ms per frame", render_ms, budget_ms)
+        return join({ "Graphics can't keep up", timing, dropped })
+    end
+
+    -- Rendering is quick, yet frames still miss their moment on screen.
+    -- Phase 0 traced this to the screen's refresh timing.
+    return join({ "Screen timing is uneven", dropped })
+end
+
+function info_details.status()
+    if mp.get_property_bool("paused-for-cache", false) then
+        local filled = mp.get_property_number("cache-buffering-state", 0)
+        return {
+            dot = true,
+            dot_color = PROBLEM_COLOR,
+            headline = "Buffering",
+            details = string.format("Waiting for the stream · %d%% ready", filled),
+        }
+    end
+
+    local total_dropped = string.format(
+        "%d dropped",
+        mp.get_property_number("frame-drop-count", 0)
+            + mp.get_property_number("decoder-frame-drop-count", 0)
+    )
+
+    if mp.get_property_bool("pause", false) then
+        return {
+            dot = true,
+            dot_color = PAUSED_COLOR,
+            headline = "Paused",
+            details = join({ describe_decoding(), total_dropped }),
+        }
+    end
+
+    local decoder_drops, output_drops = recent_drops()
+    if decoder_drops + output_drops > DROPS_BEFORE_WARNING then
+        return {
+            dot = true,
+            dot_color = WARNING_COLOR,
+            headline = "Dropping frames",
+            details = describe_drop_cause(decoder_drops, output_drops),
+        }
+    end
 
     return {
         dot = true,
-        headline = headline,
-        details = join({ decoding, dropped_text }),
+        dot_color = SMOOTH_COLOR,
+        headline = "Playing smoothly",
+        details = join({ describe_decoding(), total_dropped }),
     }
+end
+
+-- Starts sampling the frame counters, so the status is accurate as soon
+-- as the panel opens.
+function info_details.start()
+    mp.add_periodic_timer(1, sample_counters)
+
+    -- A new file starts its counters from zero, so start the history
+    -- afresh too.
+    mp.register_event("file-loaded", function()
+        counter_history = {}
+    end)
 end
 
 -- Returns every row that applies to the current file, in order.

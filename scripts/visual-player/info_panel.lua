@@ -33,7 +33,6 @@ local NARROWEST_WIDTH = 260
 local WIDEST_SHARE_OF_WINDOW = 0.45
 
 local PANEL_OPACITY = 0.78
-local SMOOTH_COLOR = "#5DCAA5"
 
 -- How often to check for changes while the panel is open.
 local REFRESH_SECONDS = 1
@@ -79,7 +78,7 @@ local function add_row_marker(row, x, y)
             x = x,
             y = y,
             radius = screen.pixels(STATUS_DOT_RADIUS),
-            color = row.dot_color or SMOOTH_COLOR,
+            color = row.dot_color,
         }))
         return
     end
@@ -205,6 +204,8 @@ end
 function info_panel.start()
     refresh_timer = mp.add_periodic_timer(REFRESH_SECONDS, refresh)
     refresh_timer:kill()
+
+    info_details.start()
 
     redraw.register(render)
     screen.on_change(redraw.request)
