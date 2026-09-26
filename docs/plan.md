@@ -288,6 +288,21 @@ Bundle an icon font (Tabler Icons, MIT licensed, matches the mockups) and render
 
 Rotate button cycles `video-rotate` through 0, 90, 180, 270 and shows a brief centered confirmation.
 
+
+### 5.9 Touch screens and control size
+
+Requested during Phase 4. Visual Player should work well with a finger on a touchscreen, not just a mouse.
+
+- **Taps act as clicks.** On Wayland, mpv turns touch into mouse input by default. Confirm on a real touchscreen before relying on it; mpv's `native-touch` option and `touch-pos` property are the fallback for reading touches directly.
+- **Targets big enough for a thumb:** at least 48 pixels (about 9 mm) at the screen's normal scaling, with at least 8 pixels between neighbors, including the seek bar's touch area, which must be taller than it looks.
+- **Control size setting:** Normal, Large (about 1.35×), and Extra large (about 1.6×), multiplying the size of every control and its text. Large is chosen automatically when a touchscreen is detected (for example from `/proc/bus/input/devices`, or the first touch event). Also useful on a TV viewed from across the room.
+- **Touch versions of hover behaviors**, since a finger can't hover:
+  - Tapping the video shows the controls without acting on anything underneath; tapping again hides them.
+  - The volume slider opens with a tap on the speaker icon, with mute inside the slider.
+  - The seek bar shows its time preview while dragging.
+  - Double-tapping the left or right third of the video skips back or forward 10 seconds; double-tapping the middle toggles fullscreen.
+- **Controls stay longer** before hiding after a touch, about 4 seconds instead of 2.
+
 ---
 
 ## 6. Data sources
@@ -651,6 +666,8 @@ Findings (step 1, Nobara): PipeWire reports each output's `audio.channels` (2 fo
 - [ ] Step 5: passthrough per device, remembered between sessions. Needs a receiver to test.
 
 ### Phase 5 — Menus and polish
+
+- [ ] Touch screens and control size (section 5.9): taps as clicks, a Normal, Large, and Extra large control size with Large chosen automatically for touchscreens, touch versions of hover behaviors, and a longer hide delay after touches.
 
 - [ ] Picture-in-picture: one key or button shrinks the window to about a quarter of the screen's width in a corner and keeps it on top (mpv's `ontop`), with a minimal interface of play/pause, return to full size, and close. The 240p minimum still applies.
 
