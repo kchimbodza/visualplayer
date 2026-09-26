@@ -42,7 +42,7 @@ plainly how your media is being played.
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 
 %files
-%license LICENSE
+%license LICENSE licenses/tabler-icons.txt
 %doc README.md
 %{_bindir}/vplay
 %{_datadir}/%{name}/

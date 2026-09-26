@@ -5,7 +5,7 @@ Visual Player draws its icons with Tabler Icons (MIT licensed). This script:
 
   1. downloads a Tabler Icons release from npm,
   2. finds the character code of each icon listed in NEEDED_ICONS,
-  3. saves the font and its license into fonts/, and
+  3. saves the font into fonts/ and its license into licenses/, and
   4. writes scripts/visual-player/icons.lua, which the Lua code reads.
 
 If Python's fontTools is installed, the font is trimmed down to only the
@@ -71,7 +71,10 @@ NEEDED_ICONS = [
 REPO_FOLDER = Path(__file__).resolve().parent.parent
 FONT_FOLDER = REPO_FOLDER / "fonts"
 FONT_FILE = FONT_FOLDER / "tabler-icons.ttf"
-LICENSE_FILE = FONT_FOLDER / "LICENSE-tabler-icons.txt"
+# Licenses live outside fonts/, because mpv tries to load every file in
+# the fonts folder as a font.
+LICENSE_FOLDER = REPO_FOLDER / "licenses"
+LICENSE_FILE = LICENSE_FOLDER / "tabler-icons.txt"
 ICON_LIST_FILE = REPO_FOLDER / "scripts" / "visual-player" / "icons.lua"
 
 PACKAGE_URL = "https://registry.npmjs.org/@tabler/icons-webfont/{version}"
@@ -209,6 +212,7 @@ def main():
 
     license_text = read_file_from_archive(archive, "LICENSE")
     if license_text is not None:
+        LICENSE_FOLDER.mkdir(exist_ok=True)
         LICENSE_FILE.write_bytes(license_text)
 
     font_family = read_font_family_name(FONT_FILE)
