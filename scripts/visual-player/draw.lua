@@ -314,8 +314,13 @@ end
 --   canvas:add(draw.rectangle({ ... }))
 --   canvas:add(draw.text({ ... }))
 --   canvas:show(screen.width, screen.height)
-function draw.create_canvas()
+--
+-- Pass { layer = -1 } to draw a canvas underneath the others, or a higher
+-- number to draw it on top. Canvases on the same layer are drawn in the
+-- order they were created.
+function draw.create_canvas(options)
     local overlay = mp.create_osd_overlay("ass-events")
+    overlay.z = (options or {}).layer or 0
     local canvas = { parts = {} }
 
     -- Adds a shape, text, or icon to be shown next time show() is called.

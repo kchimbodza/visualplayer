@@ -19,6 +19,13 @@ style.MUTED_TEXT_COLOR = "#B4B4B4"
 style.HOVER_COLOR = "#FFFFFF"
 style.HOVER_OPACITY = 0.45
 
+-- The unplayed part of the seek bar.
+style.TRACK_COLOR = "#FFFFFF"
+style.TRACK_OPACITY = 0.3
+
+-- Small labels that float over the video, like the seek bar's preview.
+style.TOOLTIP_OPACITY = 0.85
+
 -- The dark fades behind the top bar and bottom controls.
 style.BACKGROUND_COLOR = "#000000"
 style.BACKGROUND_OPACITY = 0.7

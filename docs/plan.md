@@ -599,8 +599,8 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 
 - [x] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), redraw limiting (`redraw.lua`), icon and text fonts, temporary test card.
 - [x] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Smallest window size of 240p (`window_size.lua`). Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
-- [ ] Step 3: playback row (`playback_row.lua`) inside the bottom area (`bottom_controls.lua`), with shared click handling (`click_area.lua`). mpv's own controls turned off (`osc=no`).
-- [ ] Step 4: chapter-segmented seek bar with scrubbing and hover preview.
+- [x] Step 3: playback row (`playback_row.lua`) inside the bottom area (`bottom_controls.lua`), with shared click handling (`click_area.lua`) and shared colors (`style.lua`). mpv's own controls turned off (`osc=no`).
+- [ ] Step 4: seek bar (`seek_bar.lua`) with chapter sections, scrubber, click and drag seeking (fast keyframe seeks while dragging, an exact seek on release, at most 20 a second), and a hover preview of the time and chapter.
 - [ ] Step 5: tools row and volume slider.
 - [ ] Step 6: auto-hide, and switch to `osc=no` and `border=no`.
 
@@ -614,6 +614,10 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - **The interface scales with the window's height,** relative to 1080 pixels, like mpv's own controls. Scaling only by the desktop's HiDPI setting left everything tiny in large windows.
 - **Hover highlights must be strong (45% white).** In HDR, mpv draws the interface at "paper white" brightness while the video can be far brighter, so 15% and even 28% nearly vanished over bright scenes. Shared colors and strengths now live in `style.lua`.
 - **Icons need per-icon centering.** mpv's text renderer centers a character by its spacing and line height, not its visible shape, so icons sat slightly off-center in their hover circles. `tools/update-icon-font.py` now measures each icon's shape with fontTools and stores a correction in `icons.lua`, which `draw.icon` applies.
+- **Turn off mpv's `window-dragging`.** By default, pressing and dragging anywhere on the window moves it, which grabs the mouse before Visual Player's controls see the movement, so seek bar dragging didn't work. Anything draggable (seek bar, volume slider) depends on `window-dragging=no`. The top bar moves the window itself with `begin-vo-dragging`.
+- **While dragging, draw the handle at the pointer, not at playback.** Playback only catches up after each seek, and keyframe seeks land up to a couple of seconds away, so a handle that followed playback jumped and lagged.
+- **For smooth scrubbing, send the next seek only when the last one finishes** (mpv's `playback-restart` event), always to the pointer's latest position. Seeking on a fixed timer made mpv discard half-decoded 4K frames. While dragging, redraws run at up to 60 a second.
+- **Keep expensive, rarely changing drawings on their own layer.** The blurred background sits on a canvas underneath (`layer = -1`) and only redraws when the window size changes, so frequent redraws of the controls on top stay cheap.
 - **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
 - **mpv draws a stand-in title bar when a window has no border** (its `windowcontrols` feature). Visual Player turns it off with `script-opts-append=osc-windowcontrols=no` once its own top bar is in place.
 

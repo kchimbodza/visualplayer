@@ -8,6 +8,7 @@
 -- Usage:
 --   local clicks = click_area.create("top-bar", {
 --       on_click = function() ... end,
+--       on_release = function() ... end,        -- optional
 --       on_double_click = function() ... end,   -- optional
 --   })
 --   clicks:update(pointer.is_inside(some_area))   -- after every move
@@ -22,6 +23,8 @@ function click_area.create(name, handlers)
         -- start straight away.
         if event.event == "down" then
             handlers.on_click()
+        elseif event.event == "up" and handlers.on_release then
+            handlers.on_release()
         end
     end
 

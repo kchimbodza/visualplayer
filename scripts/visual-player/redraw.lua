@@ -9,18 +9,30 @@
 
 local redraw = {}
 
--- At most 30 redraws a second. Fast enough that the interface keeps up
--- smoothly with a resize, slow enough to leave time for the video.
-local SHORTEST_TIME_BETWEEN_REDRAWS = 1 / 30
+-- Normally at most 30 redraws a second: fast enough to keep up with a
+-- resize, slow enough to leave time for the video.
+local NORMAL_TIME_BETWEEN_REDRAWS = 1 / 30
+
+-- While something is being dragged, like the seek bar's handle, allow up
+-- to 60 a second so it moves smoothly under the pointer. Only the parts
+-- that actually change are redrawn while dragging, so this stays cheap.
+local DRAGGING_TIME_BETWEEN_REDRAWS = 1 / 60
 
 local draw_functions = {}
 local is_redraw_waiting = false
 local last_redraw_time = 0
+local is_dragging = false
 
 -- Registers a function that draws one part of the interface. All
 -- registered functions run together on every redraw.
 function redraw.register(draw_function)
     table.insert(draw_functions, draw_function)
+end
+
+-- Switches to faster redraws while something is being dragged, and back
+-- again afterwards.
+function redraw.set_dragging(dragging)
+    is_dragging = dragging
 end
 
 local function redraw_now()
@@ -40,8 +52,13 @@ function redraw.request()
     end
     is_redraw_waiting = true
 
+    local shortest_gap = NORMAL_TIME_BETWEEN_REDRAWS
+    if is_dragging then
+        shortest_gap = DRAGGING_TIME_BETWEEN_REDRAWS
+    end
+
     local time_since_last_redraw = mp.get_time() - last_redraw_time
-    local wait = math.max(0, SHORTEST_TIME_BETWEEN_REDRAWS - time_since_last_redraw)
+    local wait = math.max(0, shortest_gap - time_since_last_redraw)
     mp.add_timeout(wait, redraw_now)
 end
 

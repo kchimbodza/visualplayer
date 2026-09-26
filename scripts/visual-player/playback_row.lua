@@ -12,6 +12,7 @@
 --   action   what to do when clicked
 
 local redraw = require("redraw")
+local time_format = require("time_format")
 
 local playback_row = {}
 
@@ -167,21 +168,6 @@ local function speed_control()
     }
 end
 
--- Formats seconds as "1:45", or "1:02:05" for anything an hour or longer.
-local function format_time(seconds, include_hours)
-    seconds = math.max(0, math.floor(seconds))
-
-    local hours = math.floor(seconds / 3600)
-    local minutes = math.floor(seconds % 3600 / 60)
-    local remaining_seconds = seconds % 60
-
-    if include_hours then
-        return string.format("%d:%02d:%02d", hours, minutes, remaining_seconds)
-    end
-
-    return string.format("%d:%02d", minutes, remaining_seconds)
-end
-
 local function describe_time()
     local position = mp.get_property_number("time-pos")
     local duration = mp.get_property_number("duration")
@@ -192,17 +178,17 @@ local function describe_time()
 
     -- Live streams have no known length, so just show the position.
     if duration == nil or duration <= 0 then
-        return format_time(position, position >= 3600)
+        return time_format.clock(position, position >= 3600)
     end
 
     local include_hours = duration >= 3600
-    local total = format_time(duration, include_hours)
+    local total = time_format.clock(duration, include_hours)
 
     if is_showing_remaining_time then
-        return "-" .. format_time(duration - position, include_hours) .. " / " .. total
+        return "-" .. time_format.clock(duration - position, include_hours) .. " / " .. total
     end
 
-    return format_time(position, include_hours) .. " / " .. total
+    return time_format.clock(position, include_hours) .. " / " .. total
 end
 
 local function time_control()

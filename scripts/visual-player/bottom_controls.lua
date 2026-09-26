@@ -2,8 +2,11 @@
 --
 -- This file handles the bottom area as a whole: the fade behind it, where
 -- each row sits, drawing buttons, hover highlights, and clicks. What each
--- row contains is decided in its own file, starting with playback_row.lua.
--- The seek bar and tools row join it in Phase 2, steps 4 and 5.
+-- row contains is decided in its own file: playback_row.lua and
+-- seek_bar.lua so far, with the tools row joining in Phase 2, step 5.
+--
+-- Rows are stacked upwards from the bottom of the window: the seek bar
+-- at the bottom, and the playback row above it.
 
 local click_area = require("click_area")
 local draw = require("draw")
@@ -11,6 +14,7 @@ local playback_row = require("playback_row")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
+local seek_bar = require("seek_bar")
 local style = require("style")
 
 local bottom_controls = {}
@@ -19,6 +23,9 @@ local bottom_controls = {}
 local BOTTOM_MARGIN = 12
 local SIDE_MARGIN = 10
 local ROW_HEIGHT = 44
+local SEEK_BAR_HEIGHT = 24
+local SEEK_BAR_SIDE_MARGIN = 20
+local GAP_BETWEEN_ROWS = 2
 local BUTTON_SIZE = 40
 local ICON_SIZE = 24
 local GAP_BETWEEN_CONTROLS = 4
@@ -28,7 +35,7 @@ local LABEL_PADDING = 10
 
 -- How tall the dark fade behind the controls is, and how it fades. Works
 -- the same way as the top bar's background: one blurred rectangle.
-local BACKGROUND_HEIGHT = 120
+local BACKGROUND_HEIGHT = 150
 local BACKGROUND_FADE_CENTER = 0.55
 local BACKGROUND_FADE_SPREAD = 0.45
 
@@ -41,6 +48,13 @@ local OPACITY_FOR_LOOK = {
 }
 
 local canvas = draw.create_canvas()
+
+-- The dark fade behind the controls is the most expensive thing here to
+-- draw, because of its blur, and it only changes when the window size
+-- does. So it lives on its own layer underneath, and is left alone while
+-- the controls on top redraw, for example while dragging the seek bar.
+local background_canvas = draw.create_canvas({ layer = -1 })
+local background_drawn_for_size = nil
 
 local is_visible = false
 local hovered_control_name = nil
@@ -112,7 +126,10 @@ end
 -- Works out where everything goes for the current window size. Used both
 -- for drawing and for knowing what the pointer is over.
 local function calculate_layout()
-    local row_bottom = screen.height - screen.pixels(BOTTOM_MARGIN)
+    local seek_bar_bottom = screen.height - screen.pixels(BOTTOM_MARGIN)
+    local seek_bar_top = seek_bar_bottom - screen.pixels(SEEK_BAR_HEIGHT)
+
+    local row_bottom = seek_bar_top - screen.pixels(GAP_BETWEEN_ROWS)
     local row_top = row_bottom - screen.pixels(ROW_HEIGHT)
     local row_middle = (row_top + row_bottom) / 2
 
@@ -126,6 +143,12 @@ local function calculate_layout()
 
     return {
         placed = placed,
+        seek_bar_area = {
+            left = screen.pixels(SEEK_BAR_SIDE_MARGIN),
+            top = seek_bar_top,
+            right = screen.width - screen.pixels(SEEK_BAR_SIDE_MARGIN),
+            bottom = seek_bar_bottom,
+        },
         controls_area = {
             left = 0,
             top = row_top,
@@ -148,7 +171,7 @@ local function add_background()
     local height = screen.pixels(BACKGROUND_HEIGHT)
     local blur = height * BACKGROUND_FADE_SPREAD
 
-    canvas:add(draw.rectangle({
+    background_canvas:add(draw.rectangle({
         area = {
             left = -blur,
             top = screen.height - height * BACKGROUND_FADE_CENTER,
@@ -159,6 +182,24 @@ local function add_background()
         opacity = style.BACKGROUND_OPACITY,
         blur = blur,
     }))
+end
+
+-- Redraws the background only if the window size has changed since it
+-- was last drawn.
+local function update_background()
+    local size = screen.width .. "x" .. screen.height
+    if size == background_drawn_for_size then
+        return
+    end
+
+    add_background()
+    background_canvas:show(screen.width, screen.height)
+    background_drawn_for_size = size
+end
+
+local function hide_background()
+    background_canvas:clear()
+    background_drawn_for_size = nil
 end
 
 -- Icon-only controls get a round highlight; wider ones with a label get
@@ -225,21 +266,30 @@ end
 local function render()
     if not is_visible or not screen.is_ready() then
         canvas:clear()
+        hide_background()
+        seek_bar.forget_drawn_area()
         return
     end
 
     local layout = calculate_layout()
 
-    add_background()
+    update_background()
     for _, item in ipairs(layout.placed) do
         add_control(item)
     end
+    seek_bar.render_into(canvas, layout.seek_bar_area)
 
     canvas:show(screen.width, screen.height)
 end
 
 local function on_click()
     local layout = calculate_layout()
+
+    if pointer.is_inside(layout.seek_bar_area) then
+        seek_bar.start_dragging(layout.seek_bar_area)
+        redraw.request()
+        return
+    end
 
     for _, item in ipairs(layout.placed) do
         if item.control.look ~= "disabled" and pointer.is_inside(item.area) then
@@ -252,17 +302,40 @@ end
 -- The bottom area takes over mouse clicks only while the pointer is over
 -- it. Double-clicks there are ignored, so clicking a button twice quickly
 -- doesn't also switch to fullscreen.
-local clicks = click_area.create("bottom-controls", { on_click = on_click })
+local function on_release()
+    if seek_bar.is_dragging() then
+        seek_bar.stop_dragging()
+        redraw.request()
+    end
+end
+
+local clicks = click_area.create("bottom-controls", {
+    on_click = on_click,
+    on_release = on_release,
+})
 
 -- Mouse movement happens constantly, so only ask for a redraw when
 -- something visible actually changes.
 local function on_pointer_moved()
+    -- While dragging the seek bar, keep following the pointer and keep
+    -- hold of mouse clicks, even if the pointer strays outside the
+    -- controls, so letting go still ends the drag.
+    if seek_bar.is_dragging() then
+        seek_bar.continue_dragging()
+        redraw.request()
+        return
+    end
+
     local layout = calculate_layout()
 
     local should_be_visible = pointer.is_over_window
     local now_hovered = find_hovered_control(layout)
+    local seek_bar_changed = seek_bar.update_hover(layout.seek_bar_area)
 
-    if should_be_visible ~= is_visible or now_hovered ~= hovered_control_name then
+    if should_be_visible ~= is_visible
+        or now_hovered ~= hovered_control_name
+        or seek_bar_changed
+    then
         is_visible = should_be_visible
         hovered_control_name = now_hovered
         redraw.request()
@@ -276,6 +349,7 @@ function bottom_controls.start()
     screen.on_change(redraw.request)
     pointer.on_move(on_pointer_moved)
     playback_row.start()
+    seek_bar.start()
 end
 
 return bottom_controls
