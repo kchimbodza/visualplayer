@@ -9,7 +9,7 @@
 # using a local folder. See docs/plan.md, section 10.
 
 pkgname=visual-player
-pkgver=0.6.5
+pkgver=0.6.6
 pkgrel=1
 pkgdesc="Media player for HDR video and Dolby Atmos audio, built on mpv"
 arch=('any')
@@ -18,6 +18,8 @@ license=('MIT')
 # pipewire gives pw-dump, for detecting outputs, and libpulse gives
 # pactl, for switching the system's output.
 depends=('mpv>=1:0.41' 'hicolor-icon-theme' 'pipewire' 'libpulse')
+optdepends=('zenity: click to browse for a video on the idle screen'
+            'kdialog: click to browse for a video on the idle screen, on KDE')
 makedepends=('make')
 
 package() {

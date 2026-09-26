@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.5
+Version:        0.6.6
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -24,6 +24,9 @@ Requires:       hicolor-icon-theme
 # output.
 Requires:       pipewire-utils
 Requires:       pulseaudio-utils
+# zenity, for "click to browse" on the idle screen. Without it, Visual
+# Player suggests Open With in Files instead.
+Recommends:     zenity
 
 %description
 Visual Player is a media player built on mpv. It outputs true HDR on
@@ -52,6 +55,12 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sat Sep 26 2026 myviewsontech - 0.6.6-1
+- New idle screen: a dashed drop area that opens a file chooser when
+  clicked, and the supported video and audio formats in two columns
+- 8K video is labeled 8K
+- Recommends zenity, for browsing from the idle screen
+
 * Sat Sep 26 2026 myviewsontech - 0.6.5-1
 - Drag the picture to move the window, with a mouse or a finger; a tap
   without moving still shows or hides the controls on touchscreens

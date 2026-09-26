@@ -49,6 +49,8 @@ NEEDED_ICONS = [
     "picture-in-picture",
     "picture-in-picture-off",
     "settings",
+    # Idle screen
+    "cloud-upload",
     "volume",
     "volume-2",
     "volume-3",
