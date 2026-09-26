@@ -111,8 +111,13 @@ local function describe_resolution(width, height)
     return "SD"
 end
 
--- A first description of the picture's brightness range, from the file
--- itself. Phase 3, step 2 adds HDR10+ and Dolby Vision.
+-- Describes the picture's brightness range from its brightness curve.
+-- Always from the file itself, never from what's sent to the screen, so
+-- an SDR file isn't called HDR when the screen is in HDR mode.
+--
+-- HDR10+ files show as "HDR10": mpv doesn't report whether HDR10+'s
+-- extra information is present (checked in Phase 3, step 2), and it's
+-- better to say "HDR10" accurately than to guess.
 local function describe_dynamic_range(transfer)
     if transfer == "pq" then
         return "HDR10"
@@ -121,6 +126,40 @@ local function describe_dynamic_range(transfer)
         return "HLG"
     end
     return "SDR"
+end
+
+-- Describes Dolby Vision, if the video has it. Returns the name for the
+-- headline and the profile for the technical line, or nil for both if
+-- the video isn't Dolby Vision.
+--
+-- The profile says how the picture is stored, which changes what can
+-- honestly be claimed:
+--   5    Dolby Vision only, with no fallback. mpv plays it in full.
+--   7    Two layers, from UHD Blu-rays. mpv only plays the HDR10 base
+--        layer, so it's labelled as such (confirmed in Phase 0).
+--   8    One layer with a fallback: 8.1 falls back to HDR10, 8.4 to HLG,
+--        and 8.2 to SDR. The fallback's brightness curve says which.
+local function describe_dolby_vision(track, transfer)
+    local profile = track["dolby-vision-profile"]
+    if profile == nil then
+        return nil, nil
+    end
+
+    if profile == 7 then
+        return "Dolby Vision (HDR10 base layer)", "Profile 7"
+    end
+
+    if profile == 8 then
+        if transfer == "pq" then
+            return "Dolby Vision", "Profile 8.1"
+        end
+        if transfer == "hlg" then
+            return "Dolby Vision", "Profile 8.4"
+        end
+        return "Dolby Vision", "Profile 8.2"
+    end
+
+    return "Dolby Vision", "Profile " .. profile
 end
 
 -- Works out bit depth from the pixel format mpv decodes into. "p010" and
@@ -168,10 +207,16 @@ function info_details.video()
     local height = video.dh or video.h or 0
     local codec = VIDEO_CODEC_NAMES[track.codec] or (track.codec or ""):upper()
 
+    local dynamic_range, dolby_vision_profile = describe_dolby_vision(track, video.gamma)
+    if dynamic_range == nil then
+        dynamic_range = describe_dynamic_range(video.gamma)
+    end
+
     return {
         icon = "movie",
-        headline = describe_resolution(width, height) .. " " .. describe_dynamic_range(video.gamma),
+        headline = describe_resolution(width, height) .. " " .. dynamic_range,
         details = join({
+            dolby_vision_profile,
             codec,
             string.format("%d×%d", width, height),
             describe_frame_rate(),
@@ -230,11 +275,14 @@ function info_details.audio()
     local codec = describe_audio_codec(track)
     local channels = describe_channels(track)
 
-    local headline
+    -- The channels belong with the format name, like "Dolby Atmos 5.1",
+    -- so they're joined with a space rather than " · ".
+    local headline = codec
     if has_atmos(track) then
-        headline = join({ "Dolby Atmos", channels })
-    else
-        headline = join({ codec, channels })
+        headline = "Dolby Atmos"
+    end
+    if channels then
+        headline = headline .. " " .. channels
     end
 
     local short_codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or codec
@@ -283,7 +331,14 @@ function info_details.subtitles()
         end
     end
 
-    local headline = describe_language(current.lang) or current.title or "On"
+    -- An external subtitle file's title is its file name. Drop the
+    -- extension, the same way the top bar does for titles.
+    local title = current.title
+    if title and current.external then
+        title = title:gsub("%.%w+$", "")
+    end
+
+    local headline = describe_language(current.lang) or title or "On"
     local format = SUBTITLE_FORMAT_NAMES[current.codec] or (current.codec or ""):upper()
 
     return {

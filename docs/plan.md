@@ -627,6 +627,8 @@ Phase 2 complete: version 0.2.0 installed as a package and confirmed on both Nob
 
 ### Phase 3 — Info panel
 
+Findings (step 2): the video track in `track-list` reports `dolby-vision-profile` and `dolby-vision-level` (Jellyfish 8, Art 7, Blocks 5). Profile 8's variant comes from the base layer's transfer: PQ is 8.1, HLG is 8.4, SDR is 8.2. mpv reports nothing about HDR10+, so HDR10+ files honestly show as HDR10 until it does. Most MKV files carry an average bitrate in their track metadata (`BPS`, from mkvmerge's statistics), usable for local files in step 4.
+
 - [ ] Step 1: panel shell (`info_panel.lua`, with the wording in `info_details.lua`), docked to the right edge below the clock, toggled by the info button and the `I` key, with the four grouped rows from section 5.5 filled from mpv properties. Replaces the temporary stats overlay on the info button.
 - [ ] Step 2: HDR format detection: HDR10, HDR10+, HLG, and Dolby Vision, including its profile, described honestly (profile 7 as "Dolby Vision (HDR10 base layer)"). Always from the source, never the output.
 - [ ] Step 3: status line with plain-language states: green "Playing smoothly", amber when frames drop, red when buffering, with the technical line telling apart "graphics can't keep up" (high render times) from "screen timing is uneven" (low render times, rising mistimed or delayed frames).
