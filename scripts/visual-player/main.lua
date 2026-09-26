@@ -3,7 +3,7 @@
 -- mpv loads this file first. It starts each part of Visual Player in turn.
 -- The parts themselves live in their own files next to this one.
 
-local VERSION = "0.3.0-dev"
+local VERSION = "0.3.0"
 
 local bottom_controls = require("bottom_controls")
 local info_panel = require("info_panel")
