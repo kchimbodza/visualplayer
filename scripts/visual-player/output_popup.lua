@@ -17,6 +17,7 @@ local draw = require("draw")
 local info_details = require("info_details")
 local passthrough = require("outputs.passthrough")
 local pointer = require("pointer")
+local popups = require("popups")
 local redraw = require("redraw")
 local screen = require("screen")
 local style = require("style")
@@ -388,6 +389,8 @@ end
 clicks = click_area.create("output-popup", { on_click = on_click })
 
 local function open()
+    popups.close_all_except("output-popup")
+
     -- The popup sits just above the controls, so bring them back if they
     -- had faded out, for example when it's opened with the o key.
     visibility.show_now()
@@ -432,6 +435,7 @@ local function on_pointer_moved()
 end
 
 function output_popup.start()
+    popups.register("output-popup", close)
     redraw.register(render)
     screen.on_change(redraw.request)
     pointer.on_move(on_pointer_moved)

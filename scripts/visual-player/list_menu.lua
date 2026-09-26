@@ -23,6 +23,7 @@
 local click_area = require("click_area")
 local draw = require("draw")
 local pointer = require("pointer")
+local popups = require("popups")
 local redraw = require("redraw")
 local screen = require("screen")
 local style = require("style")
@@ -292,6 +293,8 @@ function list_menu.create(name, build_sections)
     end
 
     local function open()
+        popups.close_all_except(name)
+
         -- The menu sits just above the controls, so bring them back if
         -- they had faded out, for example when it's opened with a key.
         visibility.show_now()
@@ -321,10 +324,6 @@ function list_menu.create(name, build_sections)
         end
     end
 
-    -- Closes the menu if it's open, so only one menu shows at a time.
-    function menu.close_if_open()
-        close()
-    end
 
     -- Only redraw when the item under the pointer changes.
     local function on_pointer_moved()
@@ -345,6 +344,7 @@ function list_menu.create(name, build_sections)
         end
     end
 
+    popups.register(name, close)
     redraw.register(render)
     screen.on_change(redraw.request)
     pointer.on_move(on_pointer_moved)

@@ -220,13 +220,12 @@ local chapters_and_playlist_menu = list_menu.create(
     chapter_and_playlist_sections
 )
 
+-- Opening either menu closes any other popup first (see popups.lua).
 function menus.toggle_audio_and_subtitles()
-    chapters_and_playlist_menu.close_if_open()
     audio_and_subtitles_menu.toggle()
 end
 
 function menus.toggle_chapters_and_playlist()
-    audio_and_subtitles_menu.close_if_open()
     chapters_and_playlist_menu.toggle()
 end
 
