@@ -600,8 +600,8 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - [x] Step 1: drawing toolkit (`draw.lua`), screen scaling (`screen.lua`), redraw limiting (`redraw.lua`), icon and text fonts, temporary test card.
 - [x] Step 2: top bar (`top_bar.lua`, `pointer.lua`) with title, subtitle, clock, drag-to-move, double-click to maximize, GNOME window buttons. Smallest window size of 240p (`window_size.lua`). Required on GNOME: Nobara's mpv is built without libdecor, so mpv draws no title bar there.
 - [x] Step 3: playback row (`playback_row.lua`) inside the bottom area (`bottom_controls.lua`), with shared click handling (`click_area.lua`) and shared colors (`style.lua`). mpv's own controls turned off (`osc=no`).
-- [ ] Step 4: seek bar (`seek_bar.lua`) with chapter sections, scrubber, click and drag seeking (fast keyframe seeks while dragging, an exact seek on release, at most 20 a second), and a hover preview of the time and chapter.
-- [ ] Step 5: tools row and volume slider.
+- [x] Step 4: seek bar (`seek_bar.lua`) with chapter sections, scrubber, click and drag seeking (fast keyframe seeks while dragging, an exact seek on release, at most 20 a second), and a hover preview of the time and chapter.
+- [ ] Step 5: tools row (`tools_row.lua`): subtitles, menu, info, rotate, settings, output chip, and volume with a slider that expands on hover. Menu, settings, and the output chip show a note until their panels arrive; info shows mpv's stats overlay until Phase 3.
 - [ ] Step 6: auto-hide, and switch to `osc=no` and `border=no`.
 
 ### Phase 2 findings
@@ -618,6 +618,8 @@ Tested on Omarchy (Arch, Hyprland on Wayland) with mpv 0.41.0 on a Framework 13 
 - **While dragging, draw the handle at the pointer, not at playback.** Playback only catches up after each seek, and keyframe seeks land up to a couple of seconds away, so a handle that followed playback jumped and lagged.
 - **For smooth scrubbing, send the next seek only when the last one finishes** (mpv's `playback-restart` event), always to the pointer's latest position. Seeking on a fixed timer made mpv discard half-decoded 4K frames. While dragging, redraws run at up to 60 a second.
 - **Keep expensive, rarely changing drawings on their own layer.** The blurred background sits on a canvas underneath (`layer = -1`) and only redraws when the window size changes, so frequent redraws of the controls on top stay cheap.
+- **Lift subtitles above the controls while they're showing.** mpv doesn't know about Visual Player's controls, so subtitles sat behind them. `bottom_controls.lua` sets `sub-pos` to just above the controls while they're visible and puts it back when they hide, never lower than the person's own setting.
+- **Move subtitles above the controls while they show.** mpv places subtitles near the bottom, right where the controls are. `bottom_controls.lua` sets `sub-pos` to just above the playback row while the controls are visible, and restores the original value when they hide.
 - **mpv has no minimum window size setting.** `autofit-smaller` only applies when a window opens, so shrinking below 240p is undone by a script instead.
 - **mpv draws a stand-in title bar when a window has no border** (its `windowcontrols` feature). Visual Player turns it off with `script-opts-append=osc-windowcontrols=no` once its own top bar is in place.
 

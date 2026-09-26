@@ -1,12 +1,13 @@
 -- The controls along the bottom of the window. See docs/plan.md, 5.3.
 --
 -- This file handles the bottom area as a whole: the fade behind it, where
--- each row sits, drawing buttons, hover highlights, and clicks. What each
--- row contains is decided in its own file: playback_row.lua and
--- seek_bar.lua so far, with the tools row joining in Phase 2, step 5.
+-- each row sits, drawing buttons, hover highlights, clicks, and drags.
+-- What each row contains is decided in its own file: playback_row.lua,
+-- seek_bar.lua, and tools_row.lua.
 --
--- Rows are stacked upwards from the bottom of the window: the seek bar
--- at the bottom, and the playback row above it.
+-- Rows are stacked upwards from the bottom of the window: the tools row
+-- at the very bottom, the seek bar above it, and the playback row above
+-- that.
 
 local click_area = require("click_area")
 local draw = require("draw")
@@ -16,11 +17,12 @@ local redraw = require("redraw")
 local screen = require("screen")
 local seek_bar = require("seek_bar")
 local style = require("style")
+local tools_row = require("tools_row")
 
 local bottom_controls = {}
 
 -- Sizes in design pixels. See screen.lua.
-local BOTTOM_MARGIN = 12
+local BOTTOM_MARGIN = 8
 local SIDE_MARGIN = 10
 local ROW_HEIGHT = 44
 local SEEK_BAR_HEIGHT = 24
@@ -35,9 +37,9 @@ local LABEL_PADDING = 10
 
 -- How tall the dark fade behind the controls is, and how it fades. Works
 -- the same way as the top bar's background: one blurred rectangle.
-local BACKGROUND_HEIGHT = 150
-local BACKGROUND_FADE_CENTER = 0.55
-local BACKGROUND_FADE_SPREAD = 0.45
+local BACKGROUND_HEIGHT = 200
+local BACKGROUND_FADE_CENTER = 0.6
+local BACKGROUND_FADE_SPREAD = 0.4
 
 -- How solid each look is. "dim" is for a setting that's switched off;
 -- "disabled" is for a control that can't be used right now.
@@ -59,6 +61,20 @@ local background_drawn_for_size = nil
 local is_visible = false
 local hovered_control_name = nil
 
+-- Where subtitles sit when the controls are hidden, as a percentage of
+-- the window's height (100 is the bottom). Read from the person's own
+-- settings when Visual Player starts, so their choice is respected.
+local normal_subtitle_position = 100
+
+-- The subtitle position Visual Player last set, so it's only changed when
+-- it actually needs to move.
+local current_subtitle_position = nil
+
+-- The slider being dragged, if any, and the area it was in when the drag
+-- started.
+local dragged_slider = nil
+local dragged_slider_area = nil
+
 -- Text that isn't next to an icon, like the time, is drawn a little
 -- larger, since it's read at a glance.
 local function label_size_for(control)
@@ -68,8 +84,13 @@ local function label_size_for(control)
     return screen.pixels(TIME_SIZE)
 end
 
--- How wide a control is: a square for its icon, plus room for its label.
+-- How wide a control is: a slider's own width, or a square for its icon
+-- plus room for its label.
 local function measure_control(control)
+    if control.slider then
+        return screen.pixels(control.slider.width)
+    end
+
     local width = 0
 
     if control.icon then
@@ -88,9 +109,8 @@ local function measure_control(control)
 end
 
 -- Places controls side by side, left to right from a starting point, and
--- returns each one with the area it covers.
-local function place_from_left(controls, left, middle_y)
-    local placed = {}
+-- adds each one, with the area it covers, to the placed list.
+local function place_from_left(controls, left, middle_y, placed)
     local height = screen.pixels(BUTTON_SIZE)
 
     for _, control in ipairs(controls) do
@@ -106,12 +126,10 @@ local function place_from_left(controls, left, middle_y)
         })
         left = left + width + screen.pixels(GAP_BETWEEN_CONTROLS)
     end
-
-    return placed
 end
 
 -- Same as place_from_left, but lines the controls up against a right edge.
-local function place_from_right(controls, right, middle_y)
+local function place_from_right(controls, right, middle_y, placed)
     local total_width = 0
     for index, control in ipairs(controls) do
         total_width = total_width + measure_control(control)
@@ -120,26 +138,31 @@ local function place_from_right(controls, right, middle_y)
         end
     end
 
-    return place_from_left(controls, right - total_width, middle_y)
+    place_from_left(controls, right - total_width, middle_y, placed)
+end
+
+-- Places one row's controls: those on its left against the left edge,
+-- and those on its right against the right edge.
+local function place_row(controls, middle_y, placed)
+    place_from_left(controls.left, screen.pixels(SIDE_MARGIN), middle_y, placed)
+    place_from_right(controls.right, screen.width - screen.pixels(SIDE_MARGIN), middle_y, placed)
 end
 
 -- Works out where everything goes for the current window size. Used both
 -- for drawing and for knowing what the pointer is over.
 local function calculate_layout()
-    local seek_bar_bottom = screen.height - screen.pixels(BOTTOM_MARGIN)
+    local tools_row_bottom = screen.height - screen.pixels(BOTTOM_MARGIN)
+    local tools_row_top = tools_row_bottom - screen.pixels(ROW_HEIGHT)
+
+    local seek_bar_bottom = tools_row_top - screen.pixels(GAP_BETWEEN_ROWS)
     local seek_bar_top = seek_bar_bottom - screen.pixels(SEEK_BAR_HEIGHT)
 
-    local row_bottom = seek_bar_top - screen.pixels(GAP_BETWEEN_ROWS)
-    local row_top = row_bottom - screen.pixels(ROW_HEIGHT)
-    local row_middle = (row_top + row_bottom) / 2
+    local playback_row_bottom = seek_bar_top - screen.pixels(GAP_BETWEEN_ROWS)
+    local playback_row_top = playback_row_bottom - screen.pixels(ROW_HEIGHT)
 
-    local controls = playback_row.get_controls()
-    local placed = place_from_left(controls.left, screen.pixels(SIDE_MARGIN), row_middle)
-
-    local right_edge = screen.width - screen.pixels(SIDE_MARGIN)
-    for _, item in ipairs(place_from_right(controls.right, right_edge, row_middle)) do
-        table.insert(placed, item)
-    end
+    local placed = {}
+    place_row(playback_row.get_controls(), (playback_row_top + playback_row_bottom) / 2, placed)
+    place_row(tools_row.get_controls(), (tools_row_top + tools_row_bottom) / 2, placed)
 
     return {
         placed = placed,
@@ -151,7 +174,7 @@ local function calculate_layout()
         },
         controls_area = {
             left = 0,
-            top = row_top,
+            top = playback_row_top,
             right = screen.width,
             bottom = screen.height,
         },
@@ -165,6 +188,32 @@ local function find_hovered_control(layout)
         end
     end
     return nil
+end
+
+-- True if the pointer is over the volume icon, the volume slider, or the
+-- small gap between them. Including the gap stops the slider flickering
+-- closed while the pointer moves from the icon onto it.
+local function is_pointer_over_volume(layout)
+    local area = nil
+
+    for _, item in ipairs(layout.placed) do
+        local name = item.control.name
+        if name == "volume" or name == "volume-slider" then
+            if area == nil then
+                area = {
+                    left = item.area.left,
+                    top = item.area.top,
+                    right = item.area.right,
+                    bottom = item.area.bottom,
+                }
+            else
+                area.left = math.min(area.left, item.area.left)
+                area.right = math.max(area.right, item.area.right)
+            end
+        end
+    end
+
+    return area ~= nil and pointer.is_inside(area)
 end
 
 local function add_background()
@@ -228,6 +277,13 @@ end
 local function add_control(item)
     local control = item.control
     local area = item.area
+
+    -- Sliders draw themselves.
+    if control.slider then
+        control.slider.draw(canvas, area)
+        return
+    end
+
     local middle_y = (area.top + area.bottom) / 2
     local opacity = OPACITY_FOR_LOOK[control.look] or 1
 
@@ -263,23 +319,52 @@ local function add_control(item)
     end
 end
 
+-- Moves subtitles, but only if they're not already there.
+local function set_subtitle_position(position)
+    if position == current_subtitle_position then
+        return
+    end
+
+    mp.set_property_number("sub-pos", position)
+    current_subtitle_position = position
+end
+
+-- While the controls are showing, subtitles would sit behind them (found
+-- in Phase 2, step 5), so lift them to just above the controls. They're
+-- only ever lifted higher than the person's own setting, never lower.
+local function lift_subtitles_above(layout)
+    local controls_top_percent = layout.controls_area.top / screen.height * 100
+    local lifted_position = math.floor(controls_top_percent) - 1
+    set_subtitle_position(math.min(normal_subtitle_position, lifted_position))
+end
+
+local function put_subtitles_back()
+    set_subtitle_position(normal_subtitle_position)
+end
+
 local function render()
     if not is_visible or not screen.is_ready() then
         canvas:clear()
         hide_background()
         seek_bar.forget_drawn_area()
+        put_subtitles_back()
         return
     end
 
     local layout = calculate_layout()
 
     update_background()
+    lift_subtitles_above(layout)
     for _, item in ipairs(layout.placed) do
         add_control(item)
     end
     seek_bar.render_into(canvas, layout.seek_bar_area)
 
     canvas:show(screen.width, screen.height)
+end
+
+local function is_dragging_anything()
+    return seek_bar.is_dragging() or dragged_slider ~= nil
 end
 
 local function on_click()
@@ -292,23 +377,39 @@ local function on_click()
     end
 
     for _, item in ipairs(layout.placed) do
-        if item.control.look ~= "disabled" and pointer.is_inside(item.area) then
-            item.control.action()
+        local control = item.control
+        if control.look ~= "disabled" and pointer.is_inside(item.area) then
+            if control.slider then
+                dragged_slider = control.slider
+                dragged_slider_area = item.area
+                redraw.set_dragging(true)
+                control.slider.on_press(item.area)
+            else
+                control.action()
+            end
+            redraw.request()
             return
         end
     end
 end
 
--- The bottom area takes over mouse clicks only while the pointer is over
--- it. Double-clicks there are ignored, so clicking a button twice quickly
--- doesn't also switch to fullscreen.
 local function on_release()
     if seek_bar.is_dragging() then
         seek_bar.stop_dragging()
-        redraw.request()
     end
+
+    if dragged_slider then
+        dragged_slider = nil
+        dragged_slider_area = nil
+        redraw.set_dragging(false)
+    end
+
+    redraw.request()
 end
 
+-- The bottom area takes over mouse clicks only while the pointer is over
+-- it. Double-clicks there are ignored, so clicking a button twice quickly
+-- doesn't also switch to fullscreen.
 local clicks = click_area.create("bottom-controls", {
     on_click = on_click,
     on_release = on_release,
@@ -317,11 +418,17 @@ local clicks = click_area.create("bottom-controls", {
 -- Mouse movement happens constantly, so only ask for a redraw when
 -- something visible actually changes.
 local function on_pointer_moved()
-    -- While dragging the seek bar, keep following the pointer and keep
-    -- hold of mouse clicks, even if the pointer strays outside the
-    -- controls, so letting go still ends the drag.
+    -- While dragging, keep following the pointer and keep hold of mouse
+    -- clicks, even if the pointer strays outside the controls, so letting
+    -- go still ends the drag.
     if seek_bar.is_dragging() then
         seek_bar.continue_dragging()
+        redraw.request()
+        return
+    end
+
+    if dragged_slider then
+        dragged_slider.on_drag(dragged_slider_area)
         redraw.request()
         return
     end
@@ -331,25 +438,31 @@ local function on_pointer_moved()
     local should_be_visible = pointer.is_over_window
     local now_hovered = find_hovered_control(layout)
     local seek_bar_changed = seek_bar.update_hover(layout.seek_bar_area)
+    local volume_changed = tools_row.set_volume_expanded(is_pointer_over_volume(layout))
 
     if should_be_visible ~= is_visible
         or now_hovered ~= hovered_control_name
         or seek_bar_changed
+        or volume_changed
     then
         is_visible = should_be_visible
         hovered_control_name = now_hovered
         redraw.request()
     end
 
-    clicks:update(pointer.is_inside(layout.controls_area))
+    clicks:update(pointer.is_inside(layout.controls_area) or is_dragging_anything())
 end
 
 function bottom_controls.start()
+    normal_subtitle_position = mp.get_property_number("sub-pos", 100)
+    current_subtitle_position = normal_subtitle_position
+
     redraw.register(render)
     screen.on_change(redraw.request)
     pointer.on_move(on_pointer_moved)
     playback_row.start()
     seek_bar.start()
+    tools_row.start()
 end
 
 return bottom_controls
