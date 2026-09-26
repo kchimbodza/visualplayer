@@ -641,8 +641,10 @@ Phase 3 complete: version 0.3.0, info panel confirmed on Nobara.
 Findings (step 1, Nobara): PipeWire reports each output's `audio.channels` (2 for both the laptop speakers and the monitor's port, whose profile is "Digital Stereo"), `device.api`, and `device.bus`. A connected screen's own report in `/proc/asound/card1/eld#0.3` gives `monitor_name PX277OLEDMAX` and `connection_type DisplayPort`, matching PipeWire's `hdmi-stereo-extra3` (card 1, port 3). This is how DisplayPort audio is told apart from HDMI, despite Linux naming both "HDMI". mpv's "auto" output is resolved through PipeWire's `default.audio.sink` metadata.
 
 - [x] Step 1: audio output detection (`outputs/audio.lua`): kind (Bluetooth, HDMI, DisplayPort, USB, speakers), name from the screen's report, Bluetooth codec, and channel count, via `pw-dump` in the background when outputs change. Feeds the output chip.
-- [ ] Step 2: downmix and passthrough reporting, comparing the file's channels with the fewest along the way (what mpv sends and what the output accepts), shown on a new Output row in the info panel.
-- [ ] Step 3: display details: connector, refresh rate, HDR state, and the USB-C check.
+- [x] Step 2: downmix and passthrough reporting, comparing the file's channels with the fewest along the way (what mpv sends and what the output accepts), shown on a new Output row in the info panel.
+- [ ] Step 3: display details (`outputs/display.lua`) on a new Screen row: the screen's name from its EDID, connection (HDMI, DisplayPort, or USB-C DisplayPort when confirmed), resolution, refresh rate, and HDR state.
+
+  Findings (step 3, Nobara): EDID files in `/sys/class/drm/card1-DP-3/edid` report a size of 0 but contain 384 readable bytes. mpv provides `display-width` and `display-height`, but they gave 3340×3240 on the 2880×1620 laptop screen, so the native resolution is read from the connector's `modes` file instead (first line). Also, with `window-dragging=no`, mpv ignores `begin-vo-dragging` too, so the top bar switches `window-dragging` on only while the pointer is over it. The laptop's USB-C port 1 has a partner connected but lists no alternate modes, so USB-C DisplayPort can't be confirmed there; the Screen row then says just "DisplayPort" rather than guessing.
 - [ ] Step 4: output chip popup (slim design, above the playback row) with device switching.
 - [ ] Step 5: passthrough per device, remembered between sessions. Needs a receiver to test.
 

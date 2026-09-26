@@ -8,6 +8,7 @@
 -- decides how they look on screen.
 
 local audio_output = require("outputs.audio")
+local display_output = require("outputs.display")
 
 local info_details = {}
 
@@ -77,9 +78,15 @@ local LANGUAGE_NAMES = {
 }
 
 -- Joins the parts that exist with " · ", skipping any that are missing.
+--
+-- This checks every position up to the last one filled in. A plain
+-- ipairs loop would stop at the first missing part, which blanked whole
+-- lines whenever the first part was missing, like the Dolby Vision
+-- profile on files without Dolby Vision (found in Phase 4, step 2).
 local function join(parts)
     local present = {}
-    for _, part in ipairs(parts) do
+    for index = 1, table.maxn(parts) do
+        local part = parts[index]
         if part and part ~= "" then
             table.insert(present, part)
         end
@@ -416,6 +423,62 @@ function info_details.output()
     }
 end
 
+local SCREEN_KIND_NAMES = {
+    hdmi = "HDMI",
+    displayport = "DisplayPort",
+    ["usb-c"] = "USB-C DisplayPort",
+}
+
+local SCREEN_ICONS = {
+    ["built-in"] = "device-laptop",
+    hdmi = "device-tv",
+    displayport = "device-desktop",
+    ["usb-c"] = "usb",
+}
+
+-- Shows a refresh rate as "240 Hz", or "59.94 Hz" when it isn't whole.
+local function describe_refresh(refresh)
+    if refresh == nil or refresh <= 0 then
+        return nil
+    end
+    local rounded = math.floor(refresh + 0.5)
+    if math.abs(refresh - rounded) < 0.05 then
+        return rounded .. " Hz"
+    end
+    return string.format("%.2f Hz", refresh)
+end
+
+-- Returns the Screen row: which screen the picture is on, how it's
+-- connected, its mode, and whether HDR is on. Nil until mpv says which
+-- screen it is, or for files without a picture.
+function info_details.screen()
+    local screen = display_output.current()
+    if screen == nil or mp.get_property_native("current-tracks/video") == nil then
+        return nil
+    end
+
+    local resolution = nil
+    if screen.width and screen.height and screen.width > 0 then
+        resolution = string.format("%d×%d", screen.width, screen.height)
+    end
+
+    local dynamic_range = "SDR"
+    if screen.is_hdr then
+        dynamic_range = "HDR"
+    end
+
+    return {
+        icon = SCREEN_ICONS[screen.kind] or "device-desktop",
+        headline = screen.name,
+        details = join({
+            SCREEN_KIND_NAMES[screen.kind],
+            resolution,
+            describe_refresh(screen.refresh),
+            dynamic_range,
+        }),
+    }
+end
+
 local function subtitle_tracks()
     local tracks = {}
     for _, track in ipairs(mp.get_property_native("track-list") or {}) do
@@ -693,6 +756,7 @@ function info_details.rows()
     local rows = {}
     for _, describe in ipairs({
         info_details.video,
+        info_details.screen,
         info_details.audio,
         info_details.output,
         info_details.subtitles,

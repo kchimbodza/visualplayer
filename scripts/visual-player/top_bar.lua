@@ -54,6 +54,13 @@ local CLOCK_CHECK_SECONDS = 5
 
 local canvas = draw.create_canvas()
 
+-- Whether mpv's window dragging is switched on. It's on only while the
+-- pointer is over the bar. Everywhere else it has to be off, or it grabs
+-- the mouse before the seek bar and volume slider can be dragged (Phase
+-- 2, step 4). But with it off, mpv also ignores the bar's own request to
+-- move the window (Phase 4, step 3), so the bar turns it back on.
+local is_window_dragging_on = false
+
 local hovered_button_name = nil
 
 local title_text = ""
@@ -371,7 +378,13 @@ local function on_pointer_moved()
     end
 
     -- Hidden controls don't take clicks.
-    clicks:update(visibility.is_shown() and pointer.is_inside(layout.bar))
+    local is_over_bar = visibility.is_shown() and pointer.is_inside(layout.bar)
+    clicks:update(is_over_bar)
+
+    if is_over_bar ~= is_window_dragging_on then
+        mp.set_property_bool("window-dragging", is_over_bar)
+        is_window_dragging_on = is_over_bar
+    end
 end
 
 -- Keeps the controls from hiding while the pointer rests on the bar.
