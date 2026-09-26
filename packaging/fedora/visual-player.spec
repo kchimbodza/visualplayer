@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.1
+Version:        0.6.2
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -50,6 +50,14 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sat Sep 26 2026 myviewsontech - 0.6.2-1
+- Large interface size by default
+- The audio chip always shows the codec and channels, like "AC-3 5.1",
+  for information only
+- The info button also shows the format badges
+- mpv's own messages no longer appear for audio tracks, seeking, and
+  volume
+
 * Sat Sep 26 2026 myviewsontech - 0.6.1-1
 - Opening from the app launcher shows a window instead of quitting, with
   an idle screen until a video is dropped on it

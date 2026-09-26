@@ -59,7 +59,9 @@ local function subtitles_control()
         name = "subtitles",
         icon = "badge-cc",
         look = look,
-        action = menus.toggle_audio_and_subtitles,
+        action = function()
+            menus.toggle_audio_and_subtitles("left")
+        end,
     }
 end
 
@@ -125,24 +127,34 @@ local function output_control()
 end
 
 -- The audio chip, just left of the output chip: the current track's
--- format and number, like "Dolby Digital 5.1 · 2/5", so cycling through
--- tracks always shows where you are. Clicking it opens the audio and
--- subtitles menu. Files with only one audio track don't show it, since
--- there's nothing to cycle through.
+-- codec and channels, and its number when there's more than one, like
+-- "AAC Stereo", "DTS-HD MA 5.1", or "TrueHD Atmos 7.1 · 1/5", so the
+-- format is always visible and cycling through tracks shows where you
+-- are. It's for information only, so clicking it does nothing. It's
+-- hidden only when nothing is playing any sound.
 local function audio_control()
-    local track = mp.get_property_native("current-tracks/audio")
+    local sound = info_details.sound_summary()
     local position, count = info_details.audio_track_position()
-    if track == nil or position == nil or count < 2 then
+    if sound == nil or position == nil then
         return nil
     end
 
-    local format = info_details.describe_audio_format(track)
+    local label = sound.codec
+    if sound.is_atmos then
+        label = label .. " Atmos"
+    end
+    if sound.channels then
+        label = label .. " " .. sound.channels
+    end
+    if count > 1 then
+        label = string.format("%s · %d/%d", label, position, count)
+    end
+
     return {
         name = "audio-track",
-        label = string.format("%s · %d/%d", format, position, count),
+        label = label,
         outline = true,
         look = "normal",
-        action = menus.toggle_audio_and_subtitles,
     }
 end
 

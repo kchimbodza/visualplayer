@@ -16,7 +16,9 @@ local SETTINGS_FILE = "~~/settings.json"
 local DEFAULTS = {
     hardware_decoding = "automatic",
     hide_controls_after_seconds = 2,
-    interface_size = "normal",
+    -- Large by default, so text reads comfortably from a sofa or on a
+    -- touchscreen. Normal and Extra large are in the settings menu.
+    interface_size = "large",
     remember_window_size = false,
     touch_controls = "automatic",
     format_badges = "at_start",

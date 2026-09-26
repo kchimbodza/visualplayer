@@ -189,6 +189,10 @@ local function refresh()
     end
 end
 
+function info_panel.is_open()
+    return is_open
+end
+
 -- Opens the panel if it's closed, and closes it if it's open.
 function info_panel.toggle()
     is_open = not is_open

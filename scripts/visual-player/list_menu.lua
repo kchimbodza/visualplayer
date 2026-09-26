@@ -65,13 +65,19 @@ function list_menu.create(name, build_sections)
     local hovered_line = nil
     local scroll = 0
 
-    -- Where the menu's bottom-left corner goes, set by bottom_controls.lua.
+    -- Where the menu goes, set by bottom_controls.lua: just above the
+    -- controls, lined up with their left or right edge, depending on which
+    -- side opened it. Opened from the audio chip on the right, it used to
+    -- appear far away on the left (Phase 6).
     local anchor_bottom = 0
     local anchor_left = 0
+    local anchor_right = 0
+    local side = "left"
 
-    function menu.place_above(controls_top, left_edge)
+    function menu.place_above(controls_top, left_edge, right_edge)
         anchor_bottom = controls_top - screen.pixels(GAP_ABOVE_CONTROLS)
         anchor_left = left_edge
+        anchor_right = right_edge or left_edge
     end
 
     function menu.is_open()
@@ -113,11 +119,15 @@ function list_menu.create(name, build_sections)
         -- Keep the scroll position within the content.
         scroll = math.max(0, math.min(scroll, content_height - visible_height))
 
-        local width = math.min(screen.pixels(WIDTH), screen.width - anchor_left - padding)
+        local width = math.min(screen.pixels(WIDTH), screen.width - padding * 2)
+        local left = anchor_left
+        if side == "right" then
+            left = anchor_right - width
+        end
         local panel = {
-            left = anchor_left,
+            left = left,
             top = anchor_bottom - visible_height - padding * 2,
-            right = anchor_left + width,
+            right = left + width,
             bottom = anchor_bottom,
         }
         local content_top = panel.top + padding
@@ -343,10 +353,14 @@ function list_menu.create(name, build_sections)
         redraw.request()
     end
 
-    function menu.toggle()
+    -- Opens or closes the menu. The side, "left" or "right", says which
+    -- edge of the controls to line it up with, matching where the button
+    -- that opened it is. Left is the default.
+    function menu.toggle(opened_from_side)
         if is_open then
             close()
         else
+            side = opened_from_side or "left"
             open()
         end
     end

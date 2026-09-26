@@ -5,13 +5,15 @@
 -- By default they appear a moment after a file starts, stay for a few
 -- seconds, then fade out, like the moment a streaming service shows what
 -- you're about to watch. The "Format badges" setting can instead show
--- them whenever the controls are showing, or turn them off.
+-- them whenever the controls are showing, or turn them off. They also
+-- show whenever the info panel is open.
 --
 -- They say what's actually being played, the same as the info panel:
 -- Dolby Vision profile 7 plays as HDR10, so it gets an HDR10 badge.
 
 local draw = require("draw")
 local info_details = require("info_details")
+local info_panel = require("info_panel")
 local picture_in_picture = require("picture_in_picture")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -91,7 +93,13 @@ local function labels_for_current_file()
 end
 
 -- How visible the badges should be right now, depending on the setting.
+-- While the info panel is open, they always show, whatever the setting,
+-- as a quick summary above the panel's details.
 local function current_opacity()
+    if info_panel.is_open() then
+        return 1
+    end
+
     local setting = settings.get("format_badges")
     if setting == "off" then
         return 0

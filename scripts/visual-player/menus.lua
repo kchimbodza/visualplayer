@@ -221,8 +221,10 @@ local chapters_and_playlist_menu = list_menu.create(
 )
 
 -- Opening either menu closes any other popup first (see popups.lua).
-function menus.toggle_audio_and_subtitles()
-    audio_and_subtitles_menu.toggle()
+-- The side says where the button that opened it is: "left" for the CC
+-- button, "right" for the audio chip.
+function menus.toggle_audio_and_subtitles(side)
+    audio_and_subtitles_menu.toggle(side)
 end
 
 function menus.toggle_chapters_and_playlist()
@@ -233,11 +235,11 @@ function menus.is_any_open()
     return audio_and_subtitles_menu.is_open() or chapters_and_playlist_menu.is_open()
 end
 
--- Tells both menus where the top of the bottom controls is, so they sit
--- just above them, lined up with the left edge.
-function menus.place_above(controls_top, left_edge)
-    audio_and_subtitles_menu.place_above(controls_top, left_edge)
-    chapters_and_playlist_menu.place_above(controls_top, left_edge)
+-- Tells both menus where the top of the bottom controls is, and where
+-- their left and right edges are, so they sit just above them.
+function menus.place_above(controls_top, left_edge, right_edge)
+    audio_and_subtitles_menu.place_above(controls_top, left_edge, right_edge)
+    chapters_and_playlist_menu.place_above(controls_top, left_edge, right_edge)
 end
 
 function menus.start()

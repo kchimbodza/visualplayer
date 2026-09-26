@@ -294,7 +294,9 @@ local function add_control(item)
     local middle_y = (area.top + area.bottom) / 2
     local opacity = OPACITY_FOR_LOOK[control.look] or 1
 
-    if control.name == hovered_control_name then
+    -- Outlined controls, like the audio chip, have no hover highlight:
+    -- the rounded highlight sat awkwardly over the chip's own outline.
+    if control.name == hovered_control_name and not control.outline then
         add_hover_highlight(area, control)
     end
 
@@ -395,7 +397,11 @@ local function render()
     -- The output popup sits just above the controls on the right, and
     -- the menus just above them on the left.
     output_popup.place_above(layout.controls_area.top, screen.width - screen.pixels(SIDE_MARGIN))
-    menus.place_above(layout.controls_area.top, screen.pixels(SIDE_MARGIN))
+    menus.place_above(
+        layout.controls_area.top,
+        screen.pixels(SIDE_MARGIN),
+        screen.width - screen.pixels(SIDE_MARGIN)
+    )
     settings_menu.place_above(layout.controls_area.top, screen.pixels(SIDE_MARGIN))
 
     update_background()
@@ -429,7 +435,7 @@ local function on_click()
                 dragged_slider_area = item.area
                 redraw.set_dragging(true)
                 control.slider.on_press(item.area)
-            else
+            elseif control.action then
                 control.action()
             end
             redraw.request()
