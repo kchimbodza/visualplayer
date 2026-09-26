@@ -38,6 +38,10 @@ local BLUETOOTH_CODEC_NAMES = {
 --   name       what to call it, like "PX277OLEDMAX"
 --   channels   how many channels it takes, if known
 --   codec      the Bluetooth codec, like "LDAC", if it's Bluetooth
+--   passthrough_formats   for screens and receivers, the formats they
+--              can decode themselves, in mpv's names ("truehd", "eac3"),
+--              so they can be passed through untouched. Empty when the
+--              device only takes plain PCM.
 local current_output = nil
 
 -- Every output PipeWire knows about, described the same way, plus
@@ -105,6 +109,40 @@ local function find_screen_report(card, port)
     return nil
 end
 
+-- The formats a screen or receiver reports it can decode, matched to the
+-- names mpv uses for passing them through. The kernel's names come from
+-- the device's report, like "[0x7] DTS" or "[0xc] MLP (Dolby TrueHD)".
+-- DTS-HD is checked before DTS, since its name contains "DTS" too.
+local PASSTHROUGH_FORMATS_BY_REPORTED_NAME = {
+    { pattern = "^AC%-3", format = "ac3" },
+    { pattern = "^E%-AC%-3", format = "eac3" },
+    { pattern = "^DTS%-HD", format = "dts-hd" },
+    { pattern = "^DTS", format = "dts" },
+    { pattern = "^MLP", format = "truehd" },
+}
+
+-- Reads which formats a device can decode itself from its report, which
+-- lists each one as "sad0_coding_type", "sad1_coding_type", and so on.
+-- (Phase 4, step 5: the PX277OLEDMAX monitor lists only 2-channel PCM.)
+local function read_passthrough_formats(report)
+    local formats = {}
+    local count = tonumber(report.sad_count) or 0
+
+    for index = 0, count - 1 do
+        local coding_type = report["sad" .. index .. "_coding_type"] or ""
+        local reported_name = coding_type:match("^%[.-%]%s*(.+)$") or coding_type
+
+        for _, known in ipairs(PASSTHROUGH_FORMATS_BY_REPORTED_NAME) do
+            if reported_name:find(known.pattern) then
+                table.insert(formats, known.format)
+                break
+            end
+        end
+    end
+
+    return formats
+end
+
 -- Which port of a sound card a PipeWire output uses. PipeWire names them
 -- "hdmi-stereo" for the first, then "hdmi-stereo-extra1", "-extra2"...
 local function screen_port_from_name(node_name)
@@ -140,14 +178,21 @@ local function describe_output(node, device)
 
         local kind = "hdmi"
         local name = node["node.description"] or "HDMI"
+        local passthrough_formats = {}
         if report then
             if report.connection_type == "DisplayPort" then
                 kind = "displayport"
             end
             name = report.monitor_name or name
+            passthrough_formats = read_passthrough_formats(report)
         end
 
-        return { kind = kind, name = name, channels = channels }
+        return {
+            kind = kind,
+            name = name,
+            channels = channels,
+            passthrough_formats = passthrough_formats,
+        }
     end
 
     return { kind = "speakers", name = "Built-in speakers", channels = channels }

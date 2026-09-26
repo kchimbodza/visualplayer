@@ -15,6 +15,7 @@ local audio_output = require("outputs.audio")
 local click_area = require("click_area")
 local draw = require("draw")
 local info_details = require("info_details")
+local passthrough = require("outputs.passthrough")
 local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
@@ -87,13 +88,22 @@ end
 
 -- Works out where everything goes. Used for drawing and for knowing
 -- which row the pointer is over.
+--
+-- When the current output can take surround formats untouched, a
+-- passthrough switch is added below the devices, after a second divider.
 local function calculate_layout()
     local padding = screen.pixels(PADDING)
     local outputs = audio_output.list()
+    local has_passthrough_switch = passthrough.is_possible(audio_output.current())
 
     local header_height = screen.pixels(NAME_SIZE + GAP_BETWEEN_LINES + STATUS_SIZE)
     local rows_height = #outputs * screen.pixels(ROW_HEIGHT)
-    local height = padding * 2 + header_height + screen.pixels(DIVIDER_GAP * 2) + rows_height
+    local switch_height = 0
+    if has_passthrough_switch then
+        switch_height = screen.pixels(DIVIDER_GAP * 2 + ROW_HEIGHT)
+    end
+    local height = padding * 2 + header_height + screen.pixels(DIVIDER_GAP * 2)
+        + rows_height + switch_height
 
     local width = math.min(screen.pixels(WIDTH), screen.width - padding * 2)
     local panel = {
@@ -120,7 +130,22 @@ local function calculate_layout()
         })
     end
 
-    return { panel = panel, divider_y = divider_y, rows = rows }
+    local switch = nil
+    if has_passthrough_switch then
+        local switch_divider_y = rows_top + rows_height + screen.pixels(DIVIDER_GAP)
+        local switch_top = switch_divider_y + screen.pixels(DIVIDER_GAP)
+        switch = {
+            divider_y = switch_divider_y,
+            area = {
+                left = panel.left + padding / 2,
+                top = switch_top,
+                right = panel.right - padding / 2,
+                bottom = switch_top + screen.pixels(ROW_HEIGHT),
+            },
+        }
+    end
+
+    return { panel = panel, divider_y = divider_y, rows = rows, switch = switch }
 end
 
 local function add_header(panel)
@@ -219,6 +244,73 @@ local function add_row(row)
     end
 end
 
+local function add_divider(panel, y)
+    canvas:add(draw.rectangle({
+        area = {
+            left = panel.left + screen.pixels(PADDING),
+            top = y,
+            right = panel.right - screen.pixels(PADDING),
+            bottom = y + math.max(1, screen.pixels(1)),
+        },
+        color = style.TEXT_COLOR,
+        opacity = DIVIDER_OPACITY,
+    }))
+end
+
+-- The passthrough switch: "Passthrough" and the formats the device takes
+-- on the left, and whether it's on at the right.
+local function add_passthrough_switch(panel, switch)
+    add_divider(panel, switch.divider_y)
+
+    local area = switch.area
+    local middle_y = (area.top + area.bottom) / 2
+    local padding = screen.pixels(PADDING)
+    local current = audio_output.current()
+    local is_on = passthrough.is_on(current)
+
+    if hovered_row == "passthrough" then
+        canvas:add(draw.rectangle({
+            area = area,
+            color = style.HOVER_COLOR,
+            opacity = style.HOVER_OPACITY / 2,
+            corner_radius = screen.pixels(ROW_CORNER_RADIUS),
+        }))
+    end
+
+    local state = "Off"
+    local state_color = style.MUTED_TEXT_COLOR
+    if is_on then
+        state = "On"
+        state_color = GOOD_COLOR
+    end
+
+    local state_right = area.right - padding / 2
+    canvas:add(draw.text({
+        x = state_right,
+        y = middle_y,
+        align = "right",
+        vertical = "middle",
+        text = state,
+        size = screen.pixels(ROW_TEXT_SIZE),
+        color = state_color,
+    }))
+
+    canvas:add(draw.text({
+        x = area.left + padding / 2,
+        y = middle_y,
+        vertical = "middle",
+        text = "Passthrough · " .. passthrough.describe_formats(current),
+        size = screen.pixels(ROW_TEXT_SIZE),
+        color = style.TEXT_COLOR,
+        clip = {
+            left = area.left,
+            top = area.top,
+            right = state_right - screen.pixels(40),
+            bottom = area.bottom,
+        },
+    }))
+end
+
 local function render()
     if not is_open or not screen.is_ready() then
         canvas:clear()
@@ -238,19 +330,14 @@ local function render()
 
     add_header(panel)
 
-    canvas:add(draw.rectangle({
-        area = {
-            left = panel.left + screen.pixels(PADDING),
-            top = layout.divider_y,
-            right = panel.right - screen.pixels(PADDING),
-            bottom = layout.divider_y + math.max(1, screen.pixels(1)),
-        },
-        color = style.TEXT_COLOR,
-        opacity = DIVIDER_OPACITY,
-    }))
+    add_divider(panel, layout.divider_y)
 
     for _, row in ipairs(layout.rows) do
         add_row(row)
+    end
+
+    if layout.switch then
+        add_passthrough_switch(panel, layout.switch)
     end
 
     canvas:show(screen.width, screen.height)
@@ -275,6 +362,13 @@ end
 -- chip open and close it.
 local function on_click()
     local layout = calculate_layout()
+
+    -- The switch stays open after a click, so the change can be seen.
+    if layout.switch and pointer.is_inside(layout.switch.area) then
+        passthrough.toggle()
+        redraw.request()
+        return
+    end
 
     for _, row in ipairs(layout.rows) do
         if pointer.is_inside(row.area) then
@@ -320,11 +414,15 @@ local function on_pointer_moved()
         return
     end
 
+    local layout = calculate_layout()
     local now_hovered = nil
-    for _, row in ipairs(calculate_layout().rows) do
+    for _, row in ipairs(layout.rows) do
         if pointer.is_inside(row.area) then
             now_hovered = row.output.mpv_name
         end
+    end
+    if layout.switch and pointer.is_inside(layout.switch.area) then
+        now_hovered = "passthrough"
     end
 
     if now_hovered ~= hovered_row then

@@ -6,6 +6,7 @@
 local VERSION = "0.4.0-dev"
 
 local audio_output = require("outputs.audio")
+local passthrough = require("outputs.passthrough")
 local bottom_controls = require("bottom_controls")
 local info_panel = require("info_panel")
 local output_popup = require("output_popup")
@@ -22,6 +23,7 @@ screen.start()
 pointer.start()
 playback_log.start()
 audio_output.start()
+passthrough.start()
 top_bar.start()
 bottom_controls.start()
 info_panel.start()

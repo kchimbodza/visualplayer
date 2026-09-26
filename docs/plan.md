@@ -662,8 +662,10 @@ Findings (step 1, Nobara): PipeWire reports each output's `audio.channels` (2 fo
 - [x] Step 3: display details (`outputs/display.lua`) on a new Screen row: the screen's name from its EDID, connection (HDMI, DisplayPort, or USB-C DisplayPort when confirmed), resolution, refresh rate, and HDR state.
 
   Findings (step 3, Nobara): EDID files in `/sys/class/drm/card1-DP-3/edid` report a size of 0 but contain 384 readable bytes. mpv provides `display-width` and `display-height`, but they gave 3340×3240 on the 2880×1620 laptop screen, so the native resolution is read from the connector's `modes` file instead (first line). Also, with `window-dragging=no`, mpv ignores `begin-vo-dragging` too, so the top bar switches `window-dragging` on only while the pointer is over it. The laptop's USB-C port 1 has a partner connected but lists no alternate modes, so USB-C DisplayPort can't be confirmed there; the Screen row then says just "DisplayPort" rather than guessing.
-- [ ] Step 4: output popup (`output_popup.lua`, slim design above the playback row): current output with a colored sound-path line, and every output with a check on the current one; clicking one switches to it. Opened from the chip or `o`; closed by clicking outside, the chip, or Esc.
-- [ ] Step 5: passthrough per device, remembered between sessions. Needs a receiver to test.
+- [x] Step 4: output popup (`output_popup.lua`, slim design above the playback row): current output with a colored sound-path line, and every output with a check on the current one; clicking one switches to it. Opened from the chip or `o`; closed by clicking outside, the chip, or Esc.
+- [ ] Step 5: passthrough per device (`outputs/passthrough.lua`), remembered in `~/.config/visual-player/devices.json`. Offered only when a device's own report lists formats it can decode (AC-3, E-AC-3, DTS, DTS-HD, TrueHD, listed by the kernel as "MLP"), and only those formats are passed through. The popup gets a Passthrough switch for such devices; the Output row says "Accepts stereo only" for screens without surround formats, and "Can't pass ... through" when passthrough is on but the file's format isn't one the device takes.
+
+  Findings (step 5, Nobara): the PX277OLEDMAX reports a single format, 2-channel LPCM at 44.1 or 48 kHz, so passthrough is never offered for it. **The actual bitstream to a receiver is untested** until one is connected.
 
 ### Phase 5 — Menus and polish
 

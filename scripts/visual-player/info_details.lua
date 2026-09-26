@@ -9,6 +9,7 @@
 
 local audio_output = require("outputs.audio")
 local display_output = require("outputs.display")
+local passthrough = require("outputs.passthrough")
 
 local info_details = {}
 
@@ -421,10 +422,28 @@ function info_details.output()
         kind = nil
     end
 
+    -- For screens and receivers, say what they can take, since that
+    -- explains a downmix: a monitor that only accepts stereo will always
+    -- get stereo. And if passthrough is on but this file's format isn't
+    -- one the device takes, say so, since it's then decoded as usual.
+    local capability = nil
+    local is_screen_or_receiver = output.kind == "hdmi" or output.kind == "displayport"
+    if is_screen_or_receiver and not passthrough.is_possible(output) and output.channels == 2 then
+        capability = "Accepts stereo only"
+    end
+
+    local track = mp.get_property_native("current-tracks/audio") or {}
+    local sent = mp.get_property_native("audio-out-params") or {}
+    local is_passing_through = (sent.format or ""):find("^spdif") ~= nil
+    if passthrough.is_on(output) and not is_passing_through and track.codec then
+        local codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or AUDIO_CODEC_NAMES[track.codec]
+        capability = "Can't pass " .. (codec or track.codec) .. " through"
+    end
+
     return {
         icon = OUTPUT_ICONS[output.kind] or "volume",
         headline = output.name,
-        details = join({ kind, info_details.describe_sound_path(output) }),
+        details = join({ kind, info_details.describe_sound_path(output), capability }),
     }
 end
 
