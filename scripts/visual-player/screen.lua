@@ -25,6 +25,10 @@ local DESIGN_HEIGHT = 1080
 -- stays readable.
 local SMALLEST_SCALE = 0.6
 
+-- How much bigger to draw everything, from the Interface size setting:
+-- 1 for Normal, more for Large and Extra large.
+local size_multiplier = 1
+
 local change_listeners = {}
 
 -- Converts a size in design pixels into real pixels in this window.
@@ -45,7 +49,7 @@ end
 local function update_scale()
     local scale_for_window = screen.height / DESIGN_HEIGHT
     local smallest_allowed = SMALLEST_SCALE * screen.hidpi_scale
-    screen.scale = math.max(scale_for_window, smallest_allowed)
+    screen.scale = math.max(scale_for_window, smallest_allowed) * size_multiplier
 end
 
 local function tell_listeners()
@@ -67,6 +71,14 @@ end
 
 local function on_hidpi_scale_changed(_, scale)
     screen.hidpi_scale = scale or 1
+    update_scale()
+    tell_listeners()
+end
+
+-- Sets the Interface size multiplier, and redraws everything at the new
+-- size.
+function screen.set_size_multiplier(multiplier)
+    size_multiplier = multiplier
     update_scale()
     tell_listeners()
 end

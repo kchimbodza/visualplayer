@@ -18,6 +18,7 @@ local pointer = require("pointer")
 local redraw = require("redraw")
 local screen = require("screen")
 local seek_bar = require("seek_bar")
+local settings_menu = require("settings_menu")
 local style = require("style")
 local tools_row = require("tools_row")
 local visibility = require("visibility")
@@ -363,6 +364,7 @@ local function render()
     -- the menus just above them on the left.
     output_popup.place_above(layout.controls_area.top, screen.width - screen.pixels(SIDE_MARGIN))
     menus.place_above(layout.controls_area.top, screen.pixels(SIDE_MARGIN))
+    settings_menu.place_above(layout.controls_area.top, screen.pixels(SIDE_MARGIN))
 
     update_background()
     lift_subtitles_above(layout)
@@ -459,7 +461,7 @@ local function on_pointer_moved()
     -- popup or menu is open, since it takes every click itself (clicking
     -- anywhere outside it closes it).
     local is_pointer_over_controls = pointer.is_inside(layout.controls_area)
-    local is_popup_open = output_popup.is_open() or menus.is_any_open()
+    local is_popup_open = output_popup.is_open() or menus.is_any_open() or settings_menu.is_open()
     clicks:update(visibility.is_shown() and is_pointer_over_controls and not is_popup_open)
 end
 

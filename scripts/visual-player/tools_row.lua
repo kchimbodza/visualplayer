@@ -8,13 +8,13 @@
 -- kind appears here: the volume slider, which has a "slider" table
 -- describing how to draw it and how to respond to dragging.
 --
--- Settings opens a panel that arrives later in Phase 5, so for now it
--- shows a short note saying when.
+-- The settings button opens the settings menu (settings_menu.lua).
 
 local audio_output = require("outputs.audio")
 local draw = require("draw")
 local info_panel = require("info_panel")
 local menus = require("menus")
+local settings_menu = require("settings_menu")
 local output_popup = require("output_popup")
 local pointer = require("pointer")
 local redraw = require("redraw")
@@ -57,18 +57,6 @@ local function subtitles_control()
         icon = "badge-cc",
         look = look,
         action = menus.toggle_audio_and_subtitles,
-    }
-end
-
--- A control whose panel isn't built yet: it shows a note saying when.
-local function coming_later_control(name, icon, note)
-    return {
-        name = name,
-        icon = icon,
-        look = "normal",
-        action = function()
-            show_note(note)
-        end,
     }
 end
 
@@ -266,7 +254,12 @@ function tools_row.get_controls()
             },
             info_control(),
             rotate_control(),
-            coming_later_control("settings", "settings", "Settings arrive in Phase 5"),
+            {
+                name = "settings",
+                icon = "settings",
+                look = "normal",
+                action = settings_menu.toggle,
+            },
         },
         right = right,
     }

@@ -14,8 +14,9 @@ local redraw = require("redraw")
 
 local visibility = {}
 
--- How long the controls stay after the mouse stops moving.
-local HIDE_AFTER_SECONDS = 2
+-- How long the controls stay after the mouse stops moving, until the
+-- "Hide controls after" setting says otherwise.
+local DEFAULT_HIDE_AFTER_SECONDS = 2
 
 -- How long fading in or out takes, and how many steps it's drawn in.
 local FADE_SECONDS = 0.2
@@ -145,8 +146,15 @@ local function on_pause_changed(_, is_paused)
     end
 end
 
+-- Changes how long the controls stay after the mouse stops moving. The
+-- mouse pointer hides on the same timer, so nothing sits over the picture.
+function visibility.set_hide_delay(seconds)
+    hide_timer.timeout = seconds
+    mp.set_property_number("cursor-autohide", seconds * 1000)
+end
+
 function visibility.start()
-    hide_timer = mp.add_timeout(HIDE_AFTER_SECONDS, on_hide_countdown_finished)
+    hide_timer = mp.add_timeout(DEFAULT_HIDE_AFTER_SECONDS, on_hide_countdown_finished)
     hide_timer:kill()
 
     fade_timer = mp.add_periodic_timer(1 / FADE_STEPS_PER_SECOND, step_fade)

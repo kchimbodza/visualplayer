@@ -420,7 +420,7 @@ While the project is in development, both packages build from the source folder 
 - **Omarchy:** `cd packaging/arch && makepkg -si`
 - **Nobara:** `./tools/build-rpm.sh`, which creates the source archive `rpmbuild` needs from the latest commit, then builds the RPM. Only committed changes are included.
 
-The version number currently lives in three places that must match: `main.lua`, the PKGBUILD, and the spec.
+The version number lives in three places that must match: `scripts/visual-player/version.lua`, the PKGBUILD, and the spec.
 
 ### Omarchy (Arch)
 
@@ -676,8 +676,8 @@ Phase 4 complete: version 0.4.0, confirmed on Nobara. Still to test when hardwar
 
 - [ ] Picture-in-picture: one key or button shrinks the window to about a quarter of the screen's width in a corner and keeps it on top (mpv's `ontop`), with a minimal interface of play/pause, return to full size, and close. The 240p minimum still applies.
 
-- [ ] Step 1: menus (`list_menu.lua`, `menus.lua`): "Audio & subtitles" from the CC button, listing every audio track (language, format, codec) and every subtitle track (Off first, then language, format, and Forced, SDH, or External), and "Chapters & playlist" from the menu button or `m`, listing chapters with their start times and, when more than one file is open, the playlist. Shared popup list with headings, a check on the current item, mouse wheel scrolling, and closing on a click outside, the button again, or Esc.
-- [ ] Settings menu (hardware decoding, auto-hide delay, control size, remember window size).
+- [x] Step 1: menus (`list_menu.lua`, `menus.lua`): "Audio & subtitles" from the CC button, listing every audio track (language, format, codec) and every subtitle track (Off first, then language, format, and Forced, SDH, or External), and "Chapters & playlist" from the menu button or `m`, listing chapters with their start times and, when more than one file is open, the playlist. Shared popup list with headings, a check on the current item, mouse wheel scrolling, and closing on a click outside, the button again, or Esc.
+- [ ] Step 2: settings menu (`settings_menu.lua`, saved by `settings.lua` in `~/.config/visual-player/settings.json`): Hardware decoding (Automatic, Off), Hide controls after (2, 4, or 8 seconds, with the pointer), Interface size (Normal, Large 1.35×, Extra large 1.6×), Remember window size (Off, On), and an About line. Each shows its value on the right and steps to the next on click, with the menu staying open. The version now lives in `version.lua`.
 - [x] Rotation with confirmation (done in Phase 2, step 5).
 - [x] Animations (fade in/out) kept subtle (done in Phase 2, step 6).
 

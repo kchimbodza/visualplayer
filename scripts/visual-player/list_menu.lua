@@ -17,8 +17,13 @@
 --   end)
 --   menu.toggle()
 --
--- Items can also set is_disabled, to show a note that can't be clicked,
--- like "No chapters in this file".
+-- Items can also set:
+--   is_disabled   to show a note that can't be clicked, like "No chapters
+--                 in this file"
+--   value         text shown on the right instead of a check, like a
+--                 setting's current choice
+--   keep_open     to keep the menu open after the item is clicked, so the
+--                 change can be seen, as the settings menu does
 
 local click_area = require("click_area")
 local draw = require("draw")
@@ -171,11 +176,16 @@ function list_menu.create(name, build_sections)
             }))
         end
 
-        local check_space = screen.pixels(CHECK_SIZE) + padding
+        -- Room on the right for the check mark, or for the item's value.
+        local right_space = screen.pixels(CHECK_SIZE) + padding
+        if item.value then
+            right_space = draw.estimate_text_width(item.value, screen.pixels(LABEL_SIZE))
+                + padding * 2
+        end
         local clip = {
             left = area.left,
             top = area.top,
-            right = area.right - check_space,
+            right = area.right - right_space,
             bottom = area.bottom,
         }
 
@@ -212,7 +222,17 @@ function list_menu.create(name, build_sections)
             }))
         end
 
-        if item.is_current then
+        if item.value then
+            canvas:add(draw.text({
+                x = area.right - padding / 2,
+                y = middle_y,
+                align = "right",
+                vertical = "middle",
+                text = item.value,
+                size = screen.pixels(LABEL_SIZE),
+                color = style.MUTED_TEXT_COLOR,
+            }))
+        elseif item.is_current then
             canvas:add(draw.icon({
                 name = "check",
                 x = area.right - padding / 2 - screen.pixels(CHECK_SIZE) / 2,
@@ -274,7 +294,11 @@ function list_menu.create(name, build_sections)
             if line.item and pointer.is_inside(line.area) then
                 if not line.item.is_disabled then
                     line.item.action()
-                    close()
+                    if line.item.keep_open then
+                        redraw.request()
+                    else
+                        close()
+                    end
                 end
                 return
             end

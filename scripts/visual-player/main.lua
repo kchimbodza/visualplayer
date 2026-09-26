@@ -3,8 +3,6 @@
 -- mpv loads this file first. It starts each part of Visual Player in turn.
 -- The parts themselves live in their own files next to this one.
 
-local VERSION = "0.5.0-dev"
-
 local audio_output = require("outputs.audio")
 local passthrough = require("outputs.passthrough")
 local bottom_controls = require("bottom_controls")
@@ -14,11 +12,17 @@ local output_popup = require("output_popup")
 local playback_log = require("playback_log")
 local pointer = require("pointer")
 local screen = require("screen")
+local settings = require("settings")
+local settings_menu = require("settings_menu")
 local top_bar = require("top_bar")
 local visibility = require("visibility")
+local version = require("version")
 local window_size = require("window_size")
 
-mp.msg.info("Visual Player " .. VERSION .. " started, using " .. mp.get_property("mpv-version"))
+mp.msg.info("Visual Player " .. version .. " started, using " .. mp.get_property("mpv-version"))
+
+-- Saved settings are loaded first, since other parts read them.
+settings.load()
 
 screen.start()
 pointer.start()
@@ -32,3 +36,4 @@ output_popup.start()
 menus.start()
 window_size.start()
 visibility.start()
+settings_menu.start()
