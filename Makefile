@@ -21,6 +21,7 @@ install:
 	install -Dm755 bin/vplay "$(bin_folder)/vplay"
 	install -Dm644 -t "$(app_folder)/config" config/mpv.conf config/input.conf
 	install -Dm644 -t "$(app_folder)/scripts/visual-player" scripts/visual-player/*.lua
+	install -Dm644 -t "$(app_folder)/scripts/visual-player/outputs" scripts/visual-player/outputs/*.lua
 	install -Dm644 -t "$(app_folder)/fonts" fonts/*.ttf
 	install -Dm644 -t "$(app_folder)/licenses" licenses/*.txt
 	install -Dm644 data/visual-player.desktop "$(share_folder)/applications/visual-player.desktop"

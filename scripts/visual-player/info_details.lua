@@ -7,6 +7,8 @@
 -- This file only turns mpv's properties into words. info_panel.lua
 -- decides how they look on screen.
 
+local audio_output = require("outputs.audio")
+
 local info_details = {}
 
 -- Friendlier names for the codec names mpv uses.
@@ -251,11 +253,12 @@ function info_details.video()
     }
 end
 
--- Describes channels the way they're usually written: "7.1", "5.1",
--- "Stereo", or "Mono".
-local function describe_channels(track)
-    local count = track["demux-channel-count"]
-
+-- Describes a number of channels the way it's usually written: "7.1",
+-- "5.1", "Stereo", or "Mono".
+local function channel_name(count)
+    if count == nil then
+        return nil
+    end
     if count == 8 then
         return "7.1"
     end
@@ -268,10 +271,11 @@ local function describe_channels(track)
     if count == 1 then
         return "Mono"
     end
-    if count then
-        return count .. " channels"
-    end
-    return nil
+    return count .. " channels"
+end
+
+local function describe_channels(track)
+    return channel_name(track["demux-channel-count"])
 end
 
 -- True if the track carries Dolby Atmos. mpv reports this in the codec
@@ -321,6 +325,81 @@ function info_details.audio()
         icon = "volume",
         headline = headline,
         details = join({ short_codec, sample_rate, describe_language(track.lang) }),
+    }
+end
+
+-- What to call each kind of output on the Output row, and its icon.
+local OUTPUT_KIND_NAMES = {
+    hdmi = "HDMI",
+    displayport = "DisplayPort",
+    usb = "USB audio",
+    speakers = "Built-in",
+    bluetooth = "Bluetooth",
+}
+
+local OUTPUT_ICONS = {
+    hdmi = "device-tv",
+    displayport = "device-desktop",
+    usb = "usb",
+    speakers = "device-laptop",
+    bluetooth = "bluetooth",
+}
+
+-- Says what happens to the sound on its way out, in plain words.
+--
+-- mpv can't see downmixing: it hands PipeWire all the file's channels,
+-- and PipeWire squeezes them into however many the output takes (found
+-- in Phase 0). So the file's channels are compared with the fewest
+-- channels anywhere along the way: what mpv sends, and what the output
+-- accepts.
+local function describe_sound_path(output)
+    local track = mp.get_property_native("current-tracks/audio")
+    local sent = mp.get_property_native("audio-out-params") or {}
+
+    -- Passthrough sends the audio untouched, for a receiver to decode.
+    if (sent.format or ""):find("^spdif") then
+        return "Passthrough"
+    end
+
+    local in_file = track and track["demux-channel-count"]
+    if in_file == nil then
+        return nil
+    end
+
+    local fewest = in_file
+    for _, count in ipairs({ sent["channel-count"], output.channels }) do
+        if count and count < fewest then
+            fewest = count
+        end
+    end
+
+    if fewest < in_file then
+        return channel_name(fewest) .. " downmix from " .. channel_name(in_file)
+    end
+
+    if in_file <= 2 then
+        return channel_name(in_file)
+    end
+    return "Full " .. channel_name(in_file)
+end
+
+-- Returns the Output row: where the sound is going and what happens to
+-- it on the way. Nil if the output isn't known yet, or there's no sound.
+function info_details.output()
+    local output = audio_output.current()
+    if output == nil or mp.get_property_native("current-tracks/audio") == nil then
+        return nil
+    end
+
+    local kind = OUTPUT_KIND_NAMES[output.kind] or "Output"
+    if output.kind == "bluetooth" and output.codec then
+        kind = kind .. " " .. output.codec
+    end
+
+    return {
+        icon = OUTPUT_ICONS[output.kind] or "volume",
+        headline = output.name,
+        details = join({ kind, describe_sound_path(output) }),
     }
 end
 
@@ -602,6 +681,7 @@ function info_details.rows()
     for _, describe in ipairs({
         info_details.video,
         info_details.audio,
+        info_details.output,
         info_details.subtitles,
         info_details.status,
     }) do

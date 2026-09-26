@@ -638,12 +638,13 @@ Phase 3 complete: version 0.3.0, info panel confirmed on Nobara.
 
 ### Phase 4 — Outputs
 
-- [ ] Audio device classification via `pw-dump`.
-- [ ] Bluetooth codec display.
-- [ ] Passthrough vs downmix reporting.
-- [ ] Display connector, mode, HDR state, USB-C heuristic.
-- [ ] Output chip and slim popup above the playback row.
-- [ ] Per-device passthrough settings persisted.
+Findings (step 1, Nobara): PipeWire reports each output's `audio.channels` (2 for both the laptop speakers and the monitor's port, whose profile is "Digital Stereo"), `device.api`, and `device.bus`. A connected screen's own report in `/proc/asound/card1/eld#0.3` gives `monitor_name PX277OLEDMAX` and `connection_type DisplayPort`, matching PipeWire's `hdmi-stereo-extra3` (card 1, port 3). This is how DisplayPort audio is told apart from HDMI, despite Linux naming both "HDMI". mpv's "auto" output is resolved through PipeWire's `default.audio.sink` metadata.
+
+- [x] Step 1: audio output detection (`outputs/audio.lua`): kind (Bluetooth, HDMI, DisplayPort, USB, speakers), name from the screen's report, Bluetooth codec, and channel count, via `pw-dump` in the background when outputs change. Feeds the output chip.
+- [ ] Step 2: downmix and passthrough reporting, comparing the file's channels with the fewest along the way (what mpv sends and what the output accepts), shown on a new Output row in the info panel.
+- [ ] Step 3: display details: connector, refresh rate, HDR state, and the USB-C check.
+- [ ] Step 4: output chip popup (slim design, above the playback row) with device switching.
+- [ ] Step 5: passthrough per device, remembered between sessions. Needs a receiver to test.
 
 ### Phase 5 — Menus and polish
 

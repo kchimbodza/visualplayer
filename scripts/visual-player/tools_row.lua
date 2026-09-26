@@ -11,6 +11,7 @@
 -- Menu, settings, and the output chip open panels that arrive in later
 -- phases, so for now they show a short note saying when.
 
+local audio_output = require("outputs.audio")
 local draw = require("draw")
 local info_panel = require("info_panel")
 local pointer = require("pointer")
@@ -29,9 +30,6 @@ local SLIDER_KNOB_RADIUS = 6
 -- 100 it amplifies the audio and can distort it, so the slider stops at
 -- 100. The keyboard can still go higher.
 local LOUDEST_VOLUME = 100
-
--- Longest output device name to show in the chip before cutting it short.
-local LONGEST_OUTPUT_NAME = 18
 
 -- How long placeholder notes stay on screen.
 local NOTE_SECONDS = 2
@@ -109,42 +107,29 @@ local function rotate_control()
     }
 end
 
--- Cuts long text short with an ellipsis. Counts characters, not bytes,
--- so names with accented letters aren't cut mid-character.
-local function shorten(text, longest)
-    local characters = {}
-    for character in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-        table.insert(characters, character)
-    end
+-- The output chip's icon and short label for each kind of output, like
+-- "DP" with a monitor icon. Bluetooth shows its codec instead, since
+-- that says the most about the sound. Details come from
+-- outputs/audio.lua; the full output popup arrives in Phase 4, step 4.
+local OUTPUT_ICON_AND_LABEL = {
+    hdmi = { "device-tv", "HDMI" },
+    displayport = { "device-desktop", "DP" },
+    usb = { "usb", "USB" },
+    speakers = { "device-laptop", "Speakers" },
+    bluetooth = { "bluetooth", "Bluetooth" },
+}
 
-    if #characters <= longest then
-        return text
-    end
-    return table.concat(characters, "", 1, longest - 1) .. "…"
-end
-
--- A simple description of where the sound is going, for the output chip.
--- Only Bluetooth can be told apart reliably from the device name: Linux
--- names DisplayPort audio "HDMI" too (Phase 0), so proper detection of
--- HDMI, DisplayPort, and USB arrives with the output popup in Phase 4.
 local function describe_output()
-    local device = mp.get_property("audio-device", "auto")
-
-    if device == "auto" then
+    local output = audio_output.current()
+    if output == nil then
         return "device-desktop", "Auto"
     end
 
-    if device:find("bluez") then
-        return "bluetooth", "Bluetooth"
+    local icon, label = unpack(OUTPUT_ICON_AND_LABEL[output.kind] or { "device-desktop", "Output" })
+    if output.kind == "bluetooth" and output.codec then
+        label = output.codec
     end
-
-    for _, listed in ipairs(mp.get_property_native("audio-device-list") or {}) do
-        if listed.name == device and listed.description then
-            return "device-desktop", shorten(listed.description, LONGEST_OUTPUT_NAME)
-        end
-    end
-
-    return "device-desktop", "Output"
+    return icon, label
 end
 
 local function output_control()
@@ -311,11 +296,11 @@ function tools_row.set_volume_expanded(expanded)
 end
 
 function tools_row.start()
+    audio_output.on_change(redraw.request)
+
     local properties_that_change_the_row = {
         "sid",
         "track-list",
-        "audio-device",
-        "audio-device-list",
         "volume",
         "mute",
     }

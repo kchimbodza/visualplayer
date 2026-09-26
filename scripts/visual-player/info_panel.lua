@@ -8,6 +8,7 @@
 -- stays open until closed, rather than hiding with the other controls,
 -- since it's opened to keep an eye on something.
 
+local audio_output = require("outputs.audio")
 local draw = require("draw")
 local info_details = require("info_details")
 local redraw = require("redraw")
@@ -216,6 +217,8 @@ function info_panel.start()
     mp.observe_property("current-tracks/audio", "native", refresh)
     mp.observe_property("current-tracks/sub", "native", refresh)
     mp.observe_property("video-params", "native", refresh)
+    mp.observe_property("audio-out-params", "native", refresh)
+    audio_output.on_change(refresh)
 
     -- Named so input.conf can bind a key to it:
     --   i  script-binding visual_player/toggle-info-panel
