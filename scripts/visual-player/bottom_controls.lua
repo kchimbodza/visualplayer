@@ -11,6 +11,7 @@
 
 local click_area = require("click_area")
 local draw = require("draw")
+local menus = require("menus")
 local output_popup = require("output_popup")
 local playback_row = require("playback_row")
 local pointer = require("pointer")
@@ -358,8 +359,10 @@ local function render()
 
     local layout = calculate_layout()
 
-    -- The output popup sits just above the controls on the right.
+    -- The output popup sits just above the controls on the right, and
+    -- the menus just above them on the left.
     output_popup.place_above(layout.controls_area.top, screen.width - screen.pixels(SIDE_MARGIN))
+    menus.place_above(layout.controls_area.top, screen.pixels(SIDE_MARGIN))
 
     update_background()
     lift_subtitles_above(layout)
@@ -452,13 +455,12 @@ local function on_pointer_moved()
         redraw.request()
     end
 
-    -- Hidden controls don't take clicks, and neither do these while the
-    -- output popup is open, since it takes every click itself (clicking
+    -- Hidden controls don't take clicks, and neither do these while a
+    -- popup or menu is open, since it takes every click itself (clicking
     -- anywhere outside it closes it).
     local is_pointer_over_controls = pointer.is_inside(layout.controls_area)
-    clicks:update(
-        visibility.is_shown() and is_pointer_over_controls and not output_popup.is_open()
-    )
+    local is_popup_open = output_popup.is_open() or menus.is_any_open()
+    clicks:update(visibility.is_shown() and is_pointer_over_controls and not is_popup_open)
 end
 
 -- Keeps the controls from hiding while the pointer rests on them, or

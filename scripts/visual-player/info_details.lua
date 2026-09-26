@@ -312,6 +312,36 @@ local function describe_audio_codec(track)
     return AUDIO_CODEC_NAMES[track.codec] or (track.codec or ""):upper()
 end
 
+-- Describes any audio track's format for people, like "Dolby Atmos 7.1",
+-- with a short technical name, like "TrueHD". Used by the info panel and
+-- the track picker, so a track reads the same everywhere.
+function info_details.describe_audio_format(track)
+    local codec = describe_audio_codec(track)
+    local channels = describe_channels(track)
+
+    -- The channels belong with the format name, like "Dolby Atmos 5.1",
+    -- so they're joined with a space rather than " · ".
+    local headline = codec
+    if has_atmos(track) then
+        headline = "Dolby Atmos"
+    end
+    if channels then
+        headline = headline .. " " .. channels
+    end
+
+    return headline, AUDIO_CODEC_SHORT_NAMES[track.codec] or codec
+end
+
+-- The name of a track's language, like "English", or nil if unknown.
+function info_details.describe_language(code)
+    return describe_language(code)
+end
+
+-- A subtitle track's format, like "SRT" or "PGS".
+function info_details.describe_subtitle_format(track)
+    return SUBTITLE_FORMAT_NAMES[track.codec] or (track.codec or ""):upper()
+end
+
 -- Returns the audio row, or nil if nothing is playing any sound.
 function info_details.audio()
     local track = mp.get_property_native("current-tracks/audio")

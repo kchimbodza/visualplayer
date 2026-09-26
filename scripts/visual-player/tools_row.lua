@@ -8,12 +8,13 @@
 -- kind appears here: the volume slider, which has a "slider" table
 -- describing how to draw it and how to respond to dragging.
 --
--- Menu and settings open panels that arrive in Phase 5, so for now they
--- show a short note saying when.
+-- Settings opens a panel that arrives later in Phase 5, so for now it
+-- shows a short note saying when.
 
 local audio_output = require("outputs.audio")
 local draw = require("draw")
 local info_panel = require("info_panel")
+local menus = require("menus")
 local output_popup = require("output_popup")
 local pointer = require("pointer")
 local redraw = require("redraw")
@@ -43,22 +44,11 @@ local function show_note(text)
     mp.osd_message(text, NOTE_SECONDS)
 end
 
-local function has_subtitles()
-    for _, track in ipairs(mp.get_property_native("track-list") or {}) do
-        if track.type == "sub" then
-            return true
-        end
-    end
-    return false
-end
-
--- Subtitles are dimmed when switched off, and greyed out when the file
--- has none at all.
+-- The CC button opens the audio and subtitles menu. It's dimmed while
+-- subtitles are off, as a reminder of their state.
 local function subtitles_control()
     local look = "normal"
-    if not has_subtitles() then
-        look = "disabled"
-    elseif mp.get_property("sid", "no") == "no" then
+    if mp.get_property("sid", "no") == "no" then
         look = "dim"
     end
 
@@ -66,9 +56,7 @@ local function subtitles_control()
         name = "subtitles",
         icon = "badge-cc",
         look = look,
-        action = function()
-            mp.command("cycle sub")
-        end,
+        action = menus.toggle_audio_and_subtitles,
     }
 end
 
@@ -270,11 +258,12 @@ function tools_row.get_controls()
     return {
         left = {
             subtitles_control(),
-            coming_later_control(
-                "menu",
-                "list",
-                "The chapters and playlist menu arrives in Phase 5"
-            ),
+            {
+                name = "menu",
+                icon = "list",
+                look = "normal",
+                action = menus.toggle_chapters_and_playlist,
+            },
             info_control(),
             rotate_control(),
             coming_later_control("settings", "settings", "Settings arrive in Phase 5"),

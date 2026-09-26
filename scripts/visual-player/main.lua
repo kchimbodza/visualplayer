@@ -3,12 +3,13 @@
 -- mpv loads this file first. It starts each part of Visual Player in turn.
 -- The parts themselves live in their own files next to this one.
 
-local VERSION = "0.4.0"
+local VERSION = "0.5.0-dev"
 
 local audio_output = require("outputs.audio")
 local passthrough = require("outputs.passthrough")
 local bottom_controls = require("bottom_controls")
 local info_panel = require("info_panel")
+local menus = require("menus")
 local output_popup = require("output_popup")
 local playback_log = require("playback_log")
 local pointer = require("pointer")
@@ -28,5 +29,6 @@ top_bar.start()
 bottom_controls.start()
 info_panel.start()
 output_popup.start()
+menus.start()
 window_size.start()
 visibility.start()

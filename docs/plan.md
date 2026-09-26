@@ -675,8 +675,7 @@ Phase 4 complete: version 0.4.0, confirmed on Nobara. Still to test when hardwar
 
 - [ ] Picture-in-picture: one key or button shrinks the window to about a quarter of the screen's width in a corner and keeps it on top (mpv's `ontop`), with a minimal interface of play/pause, return to full size, and close. The 240p minimum still applies.
 
-- [ ] Subtitle and audio track pickers.
-- [ ] Chapters and playlist menu.
+- [ ] Step 1: menus (`list_menu.lua`, `menus.lua`): "Audio & subtitles" from the CC button, listing every audio track (language, format, codec) and every subtitle track (Off first, then language, format, and Forced, SDH, or External), and "Chapters & playlist" from the menu button or `m`, listing chapters with their start times and, when more than one file is open, the playlist. Shared popup list with headings, a check on the current item, mouse wheel scrolling, and closing on a click outside, the button again, or Esc.
 - [ ] Settings menu (hardware decoding, auto-hide delay, control size, remember window size).
 - [x] Rotation with confirmation (done in Phase 2, step 5).
 - [x] Animations (fade in/out) kept subtle (done in Phase 2, step 6).
