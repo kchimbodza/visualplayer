@@ -599,14 +599,22 @@ function info_details.output()
     local track = mp.get_property_native("current-tracks/audio") or {}
     local sent = mp.get_property_native("audio-out-params") or {}
     local is_passing_through = (sent.format or ""):find("^spdif") ~= nil
-    if passthrough.is_on(output) and not is_passing_through and track.codec then
+    -- Only for formats that could ever be passed through: Opus, AAC, and
+    -- PCM are always decoded, so there's nothing to say about them. (It
+    -- used to say "Can't pass Opus through".)
+    local passable = {
+        ac3 = true, eac3 = true, dts = true, truehd = true,
+    }
+    local could_pass = track.codec and passable[track.codec]
+    if passthrough.is_on(output) and not is_passing_through and could_pass then
+        local codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or AUDIO_CODEC_NAMES[track.codec]
         -- Switched on while playing through PipeWire, which keeps the
         -- port until next time (see outputs/passthrough.lua).
         if mp.get_property("current-ao") == "pipewire" then
             capability = "Passthrough starts next time"
         else
-            local codec = AUDIO_CODEC_SHORT_NAMES[track.codec] or AUDIO_CODEC_NAMES[track.codec]
-            capability = "Can't pass " .. (codec or track.codec) .. " through"
+            -- The device doesn't take it, or it's been switched off.
+            capability = (codec or track.codec) .. " decoded"
         end
     end
 

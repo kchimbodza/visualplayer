@@ -16,6 +16,8 @@ local click_area = require("click_area")
 local draw = require("draw")
 local info_details = require("info_details")
 local passthrough = require("outputs.passthrough")
+local device_settings = require("outputs.device_settings")
+local input = require("mp.input")
 local pointer = require("pointer")
 local popups = require("popups")
 local redraw = require("redraw")
@@ -39,6 +41,14 @@ local ROW_HEIGHT = 36
 local ROW_ICON_SIZE = 18
 local ROW_ICON_COLUMN = 30
 local ROW_TEXT_SIZE = 15
+
+-- The passthrough format chips.
+local CHIP_ROW_HEIGHT = 36
+local CHIP_HEIGHT = 26
+local CHIP_TEXT_SIZE = 13
+local CHIP_PADDING = 9
+local CHIP_GAP = 6
+local CHIP_CORNER_RADIUS = 6
 local CHECK_SIZE = 16
 local CORNER_RADIUS = 10
 local ROW_CORNER_RADIUS = 6
@@ -99,21 +109,37 @@ local function calculate_layout()
 
     local header_height = screen.pixels(NAME_SIZE + GAP_BETWEEN_LINES + STATUS_SIZE)
     local rows_height = #outputs * screen.pixels(ROW_HEIGHT)
+    -- The passthrough switch, and under it a row of chips, one per format,
+    -- each switched on or off by tapping it.
     local switch_height = 0
     if has_passthrough_switch then
-        switch_height = screen.pixels(DIVIDER_GAP * 2 + ROW_HEIGHT)
+        switch_height = screen.pixels(DIVIDER_GAP * 2 + ROW_HEIGHT + CHIP_ROW_HEIGHT)
     end
-    local height = padding * 2 + header_height + screen.pixels(DIVIDER_GAP * 2)
-        + rows_height + switch_height
 
-    -- Wide enough for the passthrough switch's list of formats, so it's
-    -- never cut off (it was, at "TrueHI", in Phase 6).
+    -- The rename row, after its own divider, whenever there's an output.
+    local has_rename_row = audio_output.current() ~= nil
+    local rename_height = 0
+    if has_rename_row then
+        rename_height = screen.pixels(DIVIDER_GAP * 2 + ROW_HEIGHT)
+    end
+
+    local height = padding * 2 + header_height + screen.pixels(DIVIDER_GAP * 2)
+        + rows_height + switch_height + rename_height
+
+    -- Wide enough for the format chips, so they're never cut off.
     local width = screen.pixels(WIDTH)
+    local chip_widths = {}
+    local formats = {}
     if has_passthrough_switch then
-        local formats = passthrough.describe_formats(audio_output.current())
-        local switch_text = "Passthrough · " .. formats
-        local needed = draw.estimate_text_width(switch_text, screen.pixels(ROW_TEXT_SIZE))
-            + screen.pixels(40) + padding * 3
+        formats = passthrough.device_formats(audio_output.current())
+        local needed = padding * 2
+        for index, format in ipairs(formats) do
+            chip_widths[index] = draw.estimate_text_width(
+                passthrough.format_name(format),
+                screen.pixels(CHIP_TEXT_SIZE)
+            ) + screen.pixels(CHIP_PADDING) * 2
+            needed = needed + chip_widths[index] + screen.pixels(CHIP_GAP)
+        end
         width = math.max(width, needed)
     end
     width = math.min(width, screen.width - padding * 2)
@@ -153,10 +179,49 @@ local function calculate_layout()
                 right = panel.right - padding / 2,
                 bottom = switch_top + screen.pixels(ROW_HEIGHT),
             },
+            chips = {},
+        }
+
+        -- The chips, in a row under the switch, lined up with its text.
+        local chip_top = switch.area.bottom
+            + (screen.pixels(CHIP_ROW_HEIGHT) - screen.pixels(CHIP_HEIGHT)) / 2
+        local chip_left = panel.left + padding
+        for index, format in ipairs(formats) do
+            table.insert(switch.chips, {
+                format = format,
+                area = {
+                    left = chip_left,
+                    top = chip_top,
+                    right = chip_left + chip_widths[index],
+                    bottom = chip_top + screen.pixels(CHIP_HEIGHT),
+                },
+            })
+            chip_left = chip_left + chip_widths[index] + screen.pixels(CHIP_GAP)
+        end
+    end
+
+    local rename = nil
+    if has_rename_row then
+        local rename_divider_y = rows_top + rows_height + switch_height + screen.pixels(DIVIDER_GAP)
+        local rename_top = rename_divider_y + screen.pixels(DIVIDER_GAP)
+        rename = {
+            divider_y = rename_divider_y,
+            area = {
+                left = panel.left + padding / 2,
+                top = rename_top,
+                right = panel.right - padding / 2,
+                bottom = rename_top + screen.pixels(ROW_HEIGHT),
+            },
         }
     end
 
-    return { panel = panel, divider_y = divider_y, rows = rows, switch = switch }
+    return {
+        panel = panel,
+        divider_y = divider_y,
+        rows = rows,
+        switch = switch,
+        rename = rename,
+    }
 end
 
 local function add_header(panel)
@@ -268,6 +333,31 @@ local function add_divider(panel, y)
     }))
 end
 
+-- The rename row: "Rename this output…", for naming what's really on
+-- the other end, like a soundbar behind an HDMI extractor.
+local function add_rename_row(panel, rename)
+    add_divider(panel, rename.divider_y)
+
+    local area = rename.area
+    if hovered_row == "rename" then
+        canvas:add(draw.rectangle({
+            area = area,
+            color = style.HOVER_COLOR,
+            opacity = style.HOVER_OPACITY / 2,
+            corner_radius = screen.pixels(ROW_CORNER_RADIUS),
+        }))
+    end
+
+    canvas:add(draw.text({
+        x = area.left + screen.pixels(PADDING) / 2,
+        y = (area.top + area.bottom) / 2,
+        vertical = "middle",
+        text = "Rename this output…",
+        size = screen.pixels(ROW_TEXT_SIZE),
+        color = style.MUTED_TEXT_COLOR,
+    }))
+end
+
 -- The passthrough switch: "Passthrough" and the formats the device takes
 -- on the left, and whether it's on at the right.
 local function add_passthrough_switch(panel, switch)
@@ -310,16 +400,47 @@ local function add_passthrough_switch(panel, switch)
         x = area.left + padding / 2,
         y = middle_y,
         vertical = "middle",
-        text = "Passthrough · " .. passthrough.describe_formats(current),
+        text = "Passthrough",
         size = screen.pixels(ROW_TEXT_SIZE),
         color = style.TEXT_COLOR,
-        clip = {
-            left = area.left,
-            top = area.top,
-            right = state_right - screen.pixels(40),
-            bottom = area.bottom,
-        },
     }))
+
+    -- The format chips: bright with an outline when that format is passed
+    -- through, dim when it's switched off and decoded instead. While
+    -- passthrough itself is off, they're all dim.
+    for _, chip in ipairs(switch.chips) do
+        local is_passed = is_on and not passthrough.is_format_off(current, chip.format)
+        local text_color = style.MUTED_TEXT_COLOR
+        local outline_opacity = 0.2
+        if is_passed then
+            text_color = style.TEXT_COLOR
+            outline_opacity = 0.55
+        end
+        if hovered_row == "chip:" .. chip.format then
+            outline_opacity = outline_opacity + 0.25
+        end
+
+        canvas:add(draw.rectangle({
+            area = chip.area,
+            color = style.BACKGROUND_COLOR,
+            opacity = 0,
+            corner_radius = screen.pixels(CHIP_CORNER_RADIUS),
+            outline = {
+                width = math.max(1, screen.pixels(1)),
+                color = style.TEXT_COLOR,
+                opacity = outline_opacity,
+            },
+        }))
+        canvas:add(draw.text({
+            x = (chip.area.left + chip.area.right) / 2,
+            y = (chip.area.top + chip.area.bottom) / 2,
+            align = "center",
+            vertical = "middle",
+            text = passthrough.format_name(chip.format),
+            size = screen.pixels(CHIP_TEXT_SIZE),
+            color = text_color,
+        }))
+    end
 end
 
 local function render()
@@ -350,6 +471,9 @@ local function render()
     if layout.switch then
         add_passthrough_switch(panel, layout.switch)
     end
+    if layout.rename then
+        add_rename_row(panel, layout.rename)
+    end
 
     canvas:show(screen.width, screen.height)
 end
@@ -367,12 +491,56 @@ local function close()
     redraw.request()
 end
 
+-- Asks for a new name for the output in use, in mpv's own text box (the
+-- same kind as its console), and remembers it for that device. Leaving it
+-- empty goes back to the detected name.
+local function ask_for_name()
+    local output = audio_output.current()
+    if output == nil then
+        return
+    end
+
+    local detected_name = output.detected_name or output.name
+    input.get({
+        prompt = "Name for this output (empty for " .. detected_name .. "): ",
+        default_text = output.name,
+        submit = function(text)
+            local name = (text or ""):match("^%s*(.-)%s*$")
+            if name == "" or name == output.detected_name then
+                name = nil
+            end
+            device_settings.set(output, "name", name)
+            input.terminate()
+            audio_output.refresh()
+            redraw.request()
+        end,
+    })
+end
+
 -- While open, the popup takes every click. A click on an output switches
 -- to it, a click elsewhere in the popup does nothing, and a click
 -- anywhere else closes it, including on the output chip, which makes the
 -- chip open and close it.
 local function on_click()
     local layout = calculate_layout()
+
+    if layout.rename and pointer.is_inside(layout.rename.area) then
+        close()
+        ask_for_name()
+        return
+    end
+
+    -- A format chip switches that format on or off, keeping the popup
+    -- open, so the change can be seen.
+    if layout.switch then
+        for _, chip in ipairs(layout.switch.chips) do
+            if pointer.is_inside(chip.area) then
+                passthrough.toggle_format(chip.format)
+                redraw.request()
+                return
+            end
+        end
+    end
 
     -- The switch stays open after a click, so the change can be seen.
     if layout.switch and pointer.is_inside(layout.switch.area) then
@@ -439,6 +607,16 @@ local function on_pointer_moved()
     end
     if layout.switch and pointer.is_inside(layout.switch.area) then
         now_hovered = "passthrough"
+    end
+    if layout.switch then
+        for _, chip in ipairs(layout.switch.chips) do
+            if pointer.is_inside(chip.area) then
+                now_hovered = "chip:" .. chip.format
+            end
+        end
+    end
+    if layout.rename and pointer.is_inside(layout.rename.area) then
+        now_hovered = "rename"
     end
 
     if now_hovered ~= hovered_row then

@@ -18,17 +18,22 @@
 --     passthrough on while something plays takes effect next time.
 --     Switching it off works straight away.
 --
+-- Formats can also be switched off one by one, for devices that list
+-- more than they can decode: an EZCOO extractor in its Atmos 7.1 mode
+-- lists DTS and DTS-HD, but the Poseidon D80 soundbar behind it can't
+-- decode DTS at all, so passing DTS through gave silence (Phase 6). A
+-- format that's switched off is decoded to PCM as usual instead.
+--
 -- Whether passthrough is on is remembered for each device, in
--- ~/.config/visual-player/devices.json.
+-- ~/.config/visual-player/devices.json (see outputs/device_settings.lua).
 
 local audio_output = require("outputs.audio")
-local utils = require("mp.utils")
+local device_settings = require("outputs.device_settings")
 
 local passthrough = {}
 
--- mpv's "~~" means Visual Player's own settings folder.
-local SETTINGS_FILE = "~~/devices.json"
-
+-- What to call each format when showing people, like in the output
+-- popup's passthrough switch.
 local FRIENDLY_NAMES = {
     ac3 = "AC-3",
     eac3 = "E-AC-3",
@@ -36,39 +41,6 @@ local FRIENDLY_NAMES = {
     ["dts-hd"] = "DTS-HD",
     truehd = "TrueHD",
 }
-
--- Each device's settings, by its mpv name, like
---   { ["pipewire/alsa_output..."] = { passthrough = true } }
-local settings_by_device = {}
-
-local function settings_path()
-    return mp.command_native({ "expand-path", SETTINGS_FILE })
-end
-
-local function load_settings()
-    local file = io.open(settings_path(), "r")
-    if file == nil then
-        return
-    end
-
-    local loaded = utils.parse_json(file:read("*a"))
-    file:close()
-
-    if type(loaded) == "table" then
-        settings_by_device = loaded
-    end
-end
-
-local function save_settings()
-    local file = io.open(settings_path(), "w")
-    if file == nil then
-        mp.msg.warn("Couldn't save passthrough settings to " .. settings_path())
-        return
-    end
-
-    file:write(utils.format_json(settings_by_device))
-    file:close()
-end
 
 -- True if the device says it can decode at least one surround format.
 function passthrough.is_possible(output)
@@ -81,8 +53,50 @@ function passthrough.is_on(output)
     if not passthrough.is_possible(output) then
         return false
     end
-    local settings = settings_by_device[output.mpv_name] or {}
-    return settings.passthrough == true
+    return device_settings.get(output).passthrough == true
+end
+
+-- Listed best first, rather than in the device's own order.
+local FORMAT_ORDER = { "truehd", "eac3", "dts-hd", "ac3", "dts" }
+
+-- The formats the device lists, best first.
+function passthrough.device_formats(output)
+    local formats = {}
+    for _, format in ipairs(FORMAT_ORDER) do
+        for _, device_format in ipairs(output.passthrough_formats or {}) do
+            if device_format == format then
+                table.insert(formats, format)
+            end
+        end
+    end
+    return formats
+end
+
+-- True if the person has switched this format off for this device.
+function passthrough.is_format_off(output, format)
+    for _, off in ipairs(device_settings.get(output).formats_off or {}) do
+        if off == format then
+            return true
+        end
+    end
+    return false
+end
+
+-- The formats actually passed through: the device's, minus any switched
+-- off.
+local function formats_to_pass(output)
+    local formats = {}
+    for _, format in ipairs(passthrough.device_formats(output)) do
+        if not passthrough.is_format_off(output, format) then
+            table.insert(formats, format)
+        end
+    end
+    return formats
+end
+
+-- What to call a format when showing people.
+function passthrough.format_name(format)
+    return FRIENDLY_NAMES[format] or format
 end
 
 -- The sound card's short name, like "NVidia", which ALSA uses in the
@@ -131,12 +145,39 @@ local function set_if_different(property, value)
     end
 end
 
+-- The output passthrough is sending straight to, while it is.
+local output_on_direct_route = nil
+
+-- mpv's usual channel setting, "auto-safe", asks for the layout the
+-- output calls safe. A direct HDMI port calls stereo safe, so decoded
+-- surround (DTS on a soundbar that can't decode it, or LPCM 5.1) came out
+-- as stereo (Phase 6). The port could do 2 to 8 channels, but ALSA also
+-- offers a speaker layout, built from the speakers the device advertises,
+-- and the EZCOO extractor advertises only front left and right ("got
+-- ALSA chmap: FL FR (FIXED) -> stereo"), even while listing 8-channel
+-- PCM. So the direct route asks for surround outright (7.1, then 5.1,
+-- then stereo, mpv picking the best match for each track) and ignores
+-- ALSA's speaker layout, as VLC and Kodi do. Both settings are put back
+-- when the route ends.
+local SURROUND_CHANNELS = "7.1,5.1,stereo"
+local channels_before_direct_route = nil
+local ignore_chmap_before_direct_route = nil
+
 -- Goes back to playing through PipeWire, decoding as usual, following
 -- the system's output (see audio_output.switch_to).
 local function use_pipewire()
     if audio_output.direct_route_name() then
         audio_output.stop_direct_route()
+        output_on_direct_route = nil
         set_if_different("audio-device", "auto")
+        if channels_before_direct_route then
+            set_if_different("audio-channels", channels_before_direct_route)
+            channels_before_direct_route = nil
+        end
+        if ignore_chmap_before_direct_route then
+            set_if_different("alsa-ignore-chmap", ignore_chmap_before_direct_route)
+            ignore_chmap_before_direct_route = nil
+        end
     end
     set_if_different("audio-spdif", "")
 end
@@ -149,8 +190,10 @@ local function apply(output)
         return
     end
 
-    -- Already on the direct route: nothing to change.
+    -- Already on the direct route: just keep the formats up to date,
+    -- since some may have been switched on or off.
     if audio_output.direct_route_name() then
+        set_if_different("audio-spdif", table.concat(formats_to_pass(output), ","))
         return
     end
 
@@ -167,8 +210,15 @@ local function apply(output)
 
     mp.msg.info("Passthrough: sending audio straight to " .. direct_port)
     audio_output.use_direct_route(direct_port, output.mpv_name)
+    output_on_direct_route = output
+    channels_before_direct_route = mp.get_property("audio-channels")
+    set_if_different("audio-channels", SURROUND_CHANNELS)
+    ignore_chmap_before_direct_route = mp.get_property("alsa-ignore-chmap")
+    set_if_different("alsa-ignore-chmap", "yes")
+    mp.msg.info("Passthrough: decoded audio uses up to 7.1 ("
+        .. mp.get_property("audio-channels", "?") .. ")")
     set_if_different("audio-device", direct_port)
-    set_if_different("audio-spdif", table.concat(output.passthrough_formats, ","))
+    set_if_different("audio-spdif", table.concat(formats_to_pass(output), ","))
 end
 
 -- Switches passthrough on or off for the output in use, and remembers
@@ -180,9 +230,7 @@ function passthrough.toggle()
     end
 
     local turning_on = not passthrough.is_on(output)
-    settings_by_device[output.mpv_name] = settings_by_device[output.mpv_name] or {}
-    settings_by_device[output.mpv_name].passthrough = turning_on
-    save_settings()
+    device_settings.set(output, "passthrough", turning_on)
 
     if turning_on and is_playing_through_pipewire() then
         mp.osd_message("Passthrough starts next time you open Visual Player", 3)
@@ -192,11 +240,34 @@ function passthrough.toggle()
     apply(output)
 end
 
+-- Switches one format on or off for the output in use, remembers it, and
+-- takes effect straight away.
+function passthrough.toggle_format(format)
+    local output = audio_output.current()
+    if not passthrough.is_possible(output) then
+        return
+    end
+
+    local off = {}
+    local was_off = passthrough.is_format_off(output, format)
+    for _, existing in ipairs(device_settings.get(output).formats_off or {}) do
+        if existing ~= format then
+            table.insert(off, existing)
+        end
+    end
+    if not was_off then
+        table.insert(off, format)
+    end
+
+    if #off == 0 then
+        off = nil
+    end
+    device_settings.set(output, "formats_off", off)
+    apply(output)
+end
+
 -- A short list of the formats a device can decode, for showing people,
 -- like "TrueHD, E-AC-3, DTS-HD".
--- Listed best first, rather than in the device's own order.
-local FORMAT_ORDER = { "truehd", "eac3", "dts-hd", "ac3", "dts" }
-
 function passthrough.describe_formats(output)
     local described = {}
     for _, format in ipairs(FORMAT_ORDER) do
@@ -209,8 +280,30 @@ function passthrough.describe_formats(output)
     return table.concat(described, ", ")
 end
 
+-- While Visual Player holds the HDMI port directly, PipeWire can't use it,
+-- and moves the system's output elsewhere, to the laptop's speakers, so
+-- the next start began there, without passthrough (Phase 6). On closing,
+-- give the system's output back to the passthrough device.
+local function give_back_system_output()
+    if output_on_direct_route == nil then
+        return
+    end
+    local name = (output_on_direct_route.mpv_name or ""):match("^[^/]+/(.+)$")
+    if name == nil then
+        return
+    end
+    mp.command_native({
+        name = "subprocess",
+        args = { "pactl", "set-default-sink", name },
+        playback_only = false,
+        capture_stdout = true,
+        capture_stderr = true,
+    })
+end
+
 function passthrough.start()
-    load_settings()
+    mp.register_event("shutdown", give_back_system_output)
+
 
     -- Whenever the output changes, set up its route.
     audio_output.on_change(function()

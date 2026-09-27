@@ -11,6 +11,7 @@
 local audio_output = require("outputs.audio")
 local draw = require("draw")
 local info_details = require("info_details")
+local output_popup = require("output_popup")
 local redraw = require("redraw")
 local screen = require("screen")
 local style = require("style")
@@ -119,7 +120,13 @@ local function add_row(row, left, top, text_clip)
 end
 
 local function render()
-    if not is_open or not screen.is_ready() then
+    -- The panel steps aside while the output popup is open, since both
+    -- sit on the right and the popup covered the panel's lower rows
+    -- (Phase 6). It comes back when the popup closes; the popup shows the
+    -- output's details meanwhile.
+    local is_hidden = output_popup.is_open()
+
+    if not is_open or is_hidden or not screen.is_ready() then
         canvas:clear()
         drawn_rows_text = nil
         return

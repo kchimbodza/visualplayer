@@ -17,6 +17,8 @@
 
 local utils = require("mp.utils")
 
+local device_settings = require("outputs.device_settings")
+
 local audio_output = {}
 
 -- A friendlier name for each Bluetooth codec PipeWire reports.
@@ -274,6 +276,14 @@ local function describe_all_outputs(objects, wanted_name)
         if object.type == "PipeWire:Interface:Node" and props["media.class"] == "Audio/Sink" then
             local output = describe_output(props, devices[props["device.id"]] or {})
             output.mpv_name = "pipewire/" .. (props["node.name"] or "")
+
+            -- A name the person chose wins over the detected one; see
+            -- outputs/device_settings.lua.
+            output.detected_name = output.name
+            local chosen_name = device_settings.get(output).name
+            if chosen_name and chosen_name ~= "" then
+                output.name = chosen_name
+            end
             output.is_current = props["node.name"] == wanted_name
             output.pipewire_id = object.id
 

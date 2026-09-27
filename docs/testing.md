@@ -44,7 +44,11 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | Choosing an output in GNOME moves Visual Player too | | |
 | Passthrough never offered to a stereo-only monitor | Pass | Not available |
 | Passthrough to a soundbar: Dolby Atmos from TrueHD and E-AC-3, Dolby Digital from AC-3 (EZCOO extractor, Poseidon D80) | Pass (plain mpv, direct port) | |
-| Passthrough to a soundbar through Visual Player | | |
+| Passthrough to a soundbar through Visual Player | Pass (TrueHD and E-AC-3 Atmos, AC-3) | |
+| A format the device lists but can't decode, switched off in the popup (DTS on the Poseidon D80, which has no DTS decoding) | Pass (decoded instead) | |
+| Decoded surround on the direct route: DTS-HD MA 7.1 "Dredd" channel check as 7.1 PCM, every speaker in the right place | Pass | |
+| Chosen output name kept across starts and HDMI profile changes | Pass | |
+| Pass 1, SDR folder: all ten files, hardware decoding, correct badges, 0 dropped | Pass | |
 | Bluetooth output: named, codec shown, downmix shown | | |
 | Plugging in or removing an output during playback | | |
 | Audio-only file (music): no video or screen rows | | |
