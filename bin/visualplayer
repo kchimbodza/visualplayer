@@ -61,7 +61,61 @@ fi
 log_folder="${XDG_STATE_HOME:-$HOME/.local/state}/visual-player"
 mkdir -p "$log_folder"
 
+# One window: if Visual Player is already open, send it the files instead
+# of opening another window. The open window listens on a socket in the
+# user's private runtime folder, and switches to the first file, queueing
+# any others. Double-clicking a video used to open a second window (Phase
+# 6). Commands with options, like --sub-file=..., still get their own
+# window, since those options belong to a fresh start. If nothing answers
+# on the socket (no window open, or it closed), a new window opens.
+socket="${XDG_RUNTIME_DIR:-/tmp}/visual-player.socket"
+
+has_options=no
+has_files=no
+for argument in "$@"; do
+    case "$argument" in
+        --) ;;
+        -*) has_options=yes ;;
+        *) has_files=yes ;;
+    esac
+done
+
+if [ "$has_files" = yes ] && [ "$has_options" = no ] && [ -S "$socket" ] \
+    && command -v python3 >/dev/null 2>&1; then
+    if python3 - "$socket" "$@" << 'HANDOFF'
+import json
+import os
+import socket
+import sys
+
+socket_path = sys.argv[1]
+files = [argument for argument in sys.argv[2:] if argument != "--"]
+
+connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+connection.settimeout(1)
+try:
+    connection.connect(socket_path)
+except OSError:
+    sys.exit(1)
+
+for index, file in enumerate(files):
+    # Web addresses are sent as they are; files get their full path, since
+    # the open window may have started in a different folder.
+    if "://" not in file:
+        file = os.path.abspath(file)
+    mode = "replace" if index == 0 else "append-play"
+    command = {"command": ["loadfile", file, mode]}
+    connection.sendall((json.dumps(command) + "\n").encode())
+
+connection.close()
+HANDOFF
+    then
+        exit 0
+    fi
+fi
+
 exec mpv \
+    --input-ipc-server="$socket" \
     --log-file="$log_folder/last.log" \
     --idle=once \
     --force-window=yes \

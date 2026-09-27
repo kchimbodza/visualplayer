@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.12
+Version:        0.6.13
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -55,6 +55,10 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sun Sep 27 2026 myviewsontech - 0.6.13-1
+- Opening a video while Visual Player is open plays it in the same
+  window, instead of opening another
+
 * Sun Sep 27 2026 myviewsontech - 0.6.12-1
 - DTS:X is named like Dolby Atmos, as "DTS:X 7.1" on the audio chip, and
   as a "DTS:X" badge before "DTS-HD MA 7.1", with an "IMAX Enhanced"
