@@ -49,6 +49,9 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | Decoded surround on the direct route: DTS-HD MA 7.1 "Dredd" channel check as 7.1 PCM, every speaker in the right place | Pass | |
 | Chosen output name kept across starts and HDMI profile changes | Pass | |
 | Pass 1, SDR folder: all ten files, hardware decoding, correct badges, 0 dropped | Pass | |
+| Pass 2, HDR10 folder: seven files in real HDR, including 8K HEVC at 150 Mb/s, HDR10+ shown as HDR10, and DTS:X decoded to 7.1 | Pass | |
+| ProRes HDR (Strobe Scientist): decoded on the CPU, as expected for ProRes; its audio track is silent (-91 dB), so no sound is correct | Pass | |
+| Pass 3, Dolby Vision folder: profiles 5, 7, 8.1, 8.4, and 10 (AV1), plus an iPhone 13 Pro clip, all labeled correctly, with TrueHD and E-AC-3 passed through | Pass | |
 | Bluetooth output: named, codec shown, downmix shown | | |
 | Plugging in or removing an output during playback | | |
 | Audio-only file (music): no video or screen rows | | |
