@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.6
+Version:        0.6.7
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -55,6 +55,16 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sat Sep 26 2026 myviewsontech - 0.6.7-1
+- Rename an output in the output popup, like a soundbar behind an HDMI
+  extractor that passes on the monitor's name
+- Switch passthrough formats off one by one, for devices that list
+  formats they can't decode (DTS on the Poseidon D80)
+- Decoded surround on the passthrough route comes out as 7.1, not stereo
+- Output settings stay with the device when its HDMI profile changes
+- The system's output is given back to the passthrough device on closing
+- The info panel steps aside while the output popup is open
+
 * Sat Sep 26 2026 myviewsontech - 0.6.6-1
 - New idle screen: a dashed drop area that opens a file chooser when
   clicked, and the supported video and audio formats in two columns
