@@ -114,5 +114,6 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | App menu entry with icon | Pass | Pass |
 | Opening from the app menu with no file shows the idle screen; dropping a video plays it | | |
 | Open With from the file manager | Pass | |
+| Opening a second video while one is open plays it in the same window | Pass (0.6.13) | |
 | Dock or taskbar shows Visual Player, not mpv | Pass | Pass |
 | Upgrading from the previous version | Pass | Pass |
