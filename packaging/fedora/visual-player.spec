@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.9
+Version:        0.6.10
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -55,6 +55,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sun Sep 27 2026 myviewsontech - 0.6.10-1
+- Settings are always saved in ~/.config/visual-player/, rather than in
+  whatever folder Visual Player was started from, so choices like an
+  output's name stick
+
 * Sun Sep 27 2026 myviewsontech - 0.6.9-1
 - Passthrough works without setting up: it starts on for devices that
   list Dolby formats, passing Dolby through for Atmos and decoding DTS,

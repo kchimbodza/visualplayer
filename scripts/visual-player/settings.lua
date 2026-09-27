@@ -9,8 +9,10 @@ local utils = require("mp.utils")
 
 local settings = {}
 
--- mpv's "~~" means Visual Player's own settings folder.
-local SETTINGS_FILE = "~~/settings.json"
+-- In ~/.config/visual-player/; see settings_folder.lua for why the
+-- path isn't mpv's "~~/" shortcut.
+local settings_folder = require("settings_folder")
+local SETTINGS_FILE = "settings.json"
 
 -- Every setting and its value when it's never been changed.
 local DEFAULTS = {
@@ -30,7 +32,7 @@ local values = {}
 local change_listeners = {}
 
 local function settings_path()
-    return mp.command_native({ "expand-path", SETTINGS_FILE })
+    return settings_folder.path(SETTINGS_FILE)
 end
 
 local function save()

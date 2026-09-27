@@ -17,13 +17,15 @@ local utils = require("mp.utils")
 
 local device_settings = {}
 
--- mpv's "~~" means Visual Player's own settings folder.
-local SETTINGS_FILE = "~~/devices.json"
+-- In ~/.config/visual-player/; see settings_folder.lua for why the
+-- path isn't mpv's "~~/" shortcut.
+local settings_folder = require("settings_folder")
+local SETTINGS_FILE = "devices.json"
 
 local settings_by_device = nil
 
 local function settings_path()
-    return mp.command_native({ "expand-path", SETTINGS_FILE })
+    return settings_folder.path(SETTINGS_FILE)
 end
 
 local function load()
