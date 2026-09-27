@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.8
+Version:        0.6.9
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -55,6 +55,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sun Sep 27 2026 myviewsontech - 0.6.9-1
+- Passthrough works without setting up: it starts on for devices that
+  list Dolby formats, passing Dolby through for Atmos and decoding DTS,
+  which many soundbars can't decode
+
 * Sun Sep 27 2026 myviewsontech - 0.6.8-1
 - Screens and receivers are recognized on Intel sound hardware too, like
   the Framework 13's, so their names and passthrough formats are found

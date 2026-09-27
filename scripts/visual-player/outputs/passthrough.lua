@@ -49,11 +49,49 @@ function passthrough.is_possible(output)
         and #output.passthrough_formats > 0
 end
 
+-- Sensible starting choices for a device nobody has set up, so it works
+-- on any computer without setting up (Phase 6):
+--
+--   * Passthrough is on if the device lists a Dolby format, since passing
+--     Dolby TrueHD or E-AC-3 through is the only way to get Atmos.
+--   * DTS and DTS-HD are decoded rather than passed through. Decoding DTS
+--     loses almost nothing (DTS-HD MA is lossless, so the decoded 7.1 is
+--     the same; only DTS:X's height effects are lost), while many
+--     soundbars, like the Poseidon D80, can't decode DTS at all and would
+--     be silent.
+--
+-- Choices made in the output popup replace these for that device.
+local DOLBY_FORMATS = { truehd = true, eac3 = true, ac3 = true }
+local FORMATS_OFF_TO_START_WITH = { "dts", "dts-hd" }
+
+local function lists_dolby(output)
+    for _, format in ipairs(output.passthrough_formats or {}) do
+        if DOLBY_FORMATS[format] then
+            return true
+        end
+    end
+    return false
+end
+
+-- The formats switched off for a device: the ones chosen in the popup,
+-- or the starting choice if there aren't any yet.
+local function formats_off(output)
+    local chosen = device_settings.get(output).formats_off
+    if chosen == nil then
+        return FORMATS_OFF_TO_START_WITH
+    end
+    return chosen
+end
+
 function passthrough.is_on(output)
     if not passthrough.is_possible(output) then
         return false
     end
-    return device_settings.get(output).passthrough == true
+    local chosen = device_settings.get(output).passthrough
+    if chosen == nil then
+        return lists_dolby(output)
+    end
+    return chosen == true
 end
 
 -- Listed best first, rather than in the device's own order.
@@ -74,7 +112,7 @@ end
 
 -- True if the person has switched this format off for this device.
 function passthrough.is_format_off(output, format)
-    for _, off in ipairs(device_settings.get(output).formats_off or {}) do
+    for _, off in ipairs(formats_off(output)) do
         if off == format then
             return true
         end
@@ -250,7 +288,7 @@ function passthrough.toggle_format(format)
 
     local off = {}
     local was_off = passthrough.is_format_off(output, format)
-    for _, existing in ipairs(device_settings.get(output).formats_off or {}) do
+    for _, existing in ipairs(formats_off(output)) do
         if existing ~= format then
             table.insert(off, existing)
         end
@@ -259,9 +297,8 @@ function passthrough.toggle_format(format)
         table.insert(off, format)
     end
 
-    if #off == 0 then
-        off = nil
-    end
+    -- Saved even when empty, since an empty list is a choice too: every
+    -- format passed through, rather than the starting choice.
     device_settings.set(output, "formats_off", off)
     apply(output)
 end
