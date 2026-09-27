@@ -22,7 +22,7 @@ Barco Stinger Bees, plus `samples/test.srt` and
 |---|---|---|
 | HDR10 on an HDR screen: HDR output, info says HDR10 | Pass | Not available |
 | HDR on an SDR screen: tone mapped, info says "Tone mapped to SDR" | Pass (HDR off) | Pass |
-| HLG on an HDR screen | Pass | Not available |
+| HLG on an HDR screen | Pass (also a plain HLG file converted from Life Untouched: labeled HDR (HLG), sent as PQ) | Not available |
 | SDR on an HDR screen: looks normal, labeled SDR | Pass | Not available |
 | Dolby Vision profile 5 (Blocks): correct colors, "Profile 5" | Pass | Pass |
 | Dolby Vision profile 7 (Art): "HDR10 base layer" | Pass | |
@@ -110,6 +110,7 @@ Barco Stinger Bees, plus `samples/test.srt` and
 | Case | Nobara | Omarchy |
 |---|---|---|
 | Installs as a package, `visualplayer` works from anywhere | Pass | Pass |
+| Upgrading to 0.6.7 from GitHub with makepkg | | Pass |
 | App menu entry with icon | Pass | Pass |
 | Opening from the app menu with no file shows the idle screen; dropping a video plays it | | |
 | Open With from the file manager | Pass | |
