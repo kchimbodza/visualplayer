@@ -102,17 +102,50 @@ local function read_screen_report(path)
     return report
 end
 
--- Finds the report from the screen connected to a sound card's port.
--- Reports are named like "eld#0.3": the last number is the port.
-local function find_screen_report(card, port)
+-- Finds the report from the screen connected to one of a sound card's
+-- ports. Reports are files named like "eld#0.3", but the numbers mean
+-- different things on different hardware: on the ASUS ProArt PX13's
+-- NVIDIA card, the last number was the port ("eld#0.3" for port 3), but
+-- on the Framework 13's Intel card, the D80's report was "eld#2.12",
+-- unrelated to its port (Phase 6). So the report is found by, in turn:
+--
+--   1. the screen's name, which PipeWire puts in the output's description,
+--      like "Built-in Audio Digital Stereo (HDMI) [PX277OLEDMAX]"
+--   2. the only connected screen on the card, if there's just one
+--   3. the port number, as on Nobara
+local function find_screen_report(card, port, description)
     local folder = "/proc/asound/card" .. card
+    local connected = {}
+
     for _, file_name in ipairs(utils.readdir(folder, "files") or {}) do
-        local report_port = file_name:match("^eld#%d+%.(%d+)$")
-        if report_port and tonumber(report_port) == port then
+        if file_name:match("^eld#%d+%.%d+$") then
             local report = read_screen_report(folder .. "/" .. file_name)
             if report and report.eld_valid == "1" then
+                report.file_port = tonumber(file_name:match("%.(%d+)$"))
+                table.insert(connected, report)
+            end
+        end
+    end
+
+    -- 1. By the screen's name, when PipeWire gives it in brackets.
+    local named = (description or ""):match("%[(.-)%]%s*$")
+    if named then
+        for _, report in ipairs(connected) do
+            if report.monitor_name == named then
                 return report
             end
+        end
+    end
+
+    -- 2. The only connected screen.
+    if #connected == 1 then
+        return connected[1]
+    end
+
+    -- 3. By port number.
+    for _, report in ipairs(connected) do
+        if report.file_port == port then
+            return report
         end
     end
     return nil
@@ -183,7 +216,11 @@ local function describe_output(node, device)
 
     if node_name:find("hdmi") then
         local card = node["api.alsa.pcm.card"]
-        local report = card and find_screen_report(card, screen_port_from_name(node_name))
+        local report = card and find_screen_report(
+            card,
+            screen_port_from_name(node_name),
+            node["node.description"]
+        )
 
         local kind = "hdmi"
         local name = node["node.description"] or "HDMI"
