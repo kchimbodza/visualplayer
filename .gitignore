@@ -17,3 +17,8 @@ samples/
 .vscode/
 .idea/
 spike-report-*.txt
+
+# Stray settings copies and mpv screenshots
+/devices.json
+/settings.json
+mpv-shot*.jpg
