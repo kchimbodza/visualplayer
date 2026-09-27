@@ -1,23 +1,33 @@
--- The output popup: opened from the output chip next to the volume, it
--- shows where the sound is going and what happens to it on the way, and
--- lets you switch to a different output. See docs/plan.md, 5.6.
+-- The output popup: opened from the output chip, it shows where the
+-- sound is going and what happens to it on the way, and lets you switch
+-- to a different output. See docs/plan.md, 5.6.
 --
--- It's only about sound. An earlier version also had a line for the
--- screen, but sitting under the sound device's name it read as if it
--- described that device (Phase 4, step 4). The info panel's Screen row
--- covers the picture instead.
+-- Laid out as a card for the output in use, then the others (design B of
+-- three, Phase 6, replacing a taller layout that showed the name twice,
+-- had three dividers, and gave renaming a row of its own):
 --
--- It sits just above the playback row on the right, so the time, seek
--- bar, and controls stay visible while it's open. bottom_controls.lua
--- tells it where that is.
+--   🖥  Ultimea D80 ✎                        [on]
+--       Passthrough · Dolby Atmos 7.1
+--       TrueHD  E-AC-3  AC-3  DTS-HD  DTS
+--   Switch to
+--   💻  Built-in speakers
+--
+-- Clicking the name or pencil renames the output in place: the name
+-- becomes a text field, Enter saves, Esc cancels, and clicking outside it
+-- saves. An empty name goes back to the detected one. The chips switch
+-- passthrough formats on or off one by one, and the switch turns
+-- passthrough itself on or off.
+--
+-- It's only about sound; the info panel's Screen row covers the picture.
+-- It sits just above the controls on the right; bottom_controls.lua says
+-- where.
 
 local audio_output = require("outputs.audio")
 local click_area = require("click_area")
+local device_settings = require("outputs.device_settings")
 local draw = require("draw")
 local info_details = require("info_details")
 local passthrough = require("outputs.passthrough")
-local device_settings = require("outputs.device_settings")
-local input = require("mp.input")
 local pointer = require("pointer")
 local popups = require("popups")
 local redraw = require("redraw")
@@ -28,35 +38,43 @@ local visibility = require("visibility")
 local output_popup = {}
 
 -- Sizes in design pixels. See screen.lua.
-local WIDTH = 360
+local WIDTH = 340
 local PADDING = 12
 local GAP_ABOVE_CONTROLS = 8
-local HEADER_ICON_SIZE = 22
-local HEADER_ICON_COLUMN = 34
-local NAME_SIZE = 17
-local STATUS_SIZE = 14
-local GAP_BETWEEN_LINES = 4
-local DIVIDER_GAP = 10
-local ROW_HEIGHT = 36
-local ROW_ICON_SIZE = 18
-local ROW_ICON_COLUMN = 30
-local ROW_TEXT_SIZE = 15
+local CORNER_RADIUS = 12
 
--- The passthrough format chips.
-local CHIP_ROW_HEIGHT = 36
-local CHIP_HEIGHT = 26
-local CHIP_TEXT_SIZE = 13
-local CHIP_PADDING = 9
-local CHIP_GAP = 6
+local CARD_ICON_SIZE = 22
+local TEXT_LEFT = 42
+local NAME_SIZE = 17
+local STATUS_SIZE = 13
+local GAP_BELOW_NAME = 4
+local PENCIL_SIZE = 14
+local GAP_BEFORE_PENCIL = 8
+
+local SWITCH_WIDTH = 36
+local SWITCH_HEIGHT = 20
+
+local CHIP_HEIGHT = 24
+local CHIP_TEXT_SIZE = 12
+local CHIP_PADDING = 8
+local CHIP_GAP = 5
 local CHIP_CORNER_RADIUS = 6
-local CHECK_SIZE = 16
-local CORNER_RADIUS = 10
+local GAP_ABOVE_CHIPS = 10
+
+local SWITCH_TO_SIZE = 12
+local GAP_ABOVE_SWITCH_TO = 14
+local ROW_HEIGHT = 34
+local ROW_ICON_SIZE = 18
+local ROW_TEXT_SIZE = 15
 local ROW_CORNER_RADIUS = 6
 
-local PANEL_OPACITY = 0.88
-local DIVIDER_OPACITY = 0.2
+local FIELD_PADDING = 6
+local HINT_SIZE = 11
+
+local PANEL_OPACITY = 0.9
 local GOOD_COLOR = "#5DCAA5"
 local WARNING_COLOR = "#EF9F27"
+local SWITCH_OFF_COLOR = "#5F5E5A"
 
 local OUTPUT_ICONS = {
     hdmi = "device-tv",
@@ -68,14 +86,15 @@ local OUTPUT_ICONS = {
 
 local canvas = draw.create_canvas({ layer = 2 })
 local is_open = false
-local hovered_row = nil
+local hovered = nil
+
+-- While renaming, the text typed so far; nil otherwise.
+local editing_text = nil
 
 -- Where the popup's bottom-right corner goes, set by bottom_controls.lua.
 local anchor_bottom = 0
 local anchor_right = 0
 
--- Tells the popup where the top of the bottom controls is, so it can sit
--- just above them.
 function output_popup.place_above(controls_top, right_edge)
     anchor_bottom = controls_top - screen.pixels(GAP_ABOVE_CONTROLS)
     anchor_right = right_edge
@@ -87,62 +106,83 @@ end
 
 -- The status line's color: green when the sound arrives in full or
 -- untouched, amber when it's being squeezed into fewer channels.
-local function sound_path_color(sound_path)
-    if sound_path and sound_path:find("downmix") then
+local function status_color(status)
+    if status:find("downmix") then
         return WARNING_COLOR
     end
-    if sound_path and (sound_path:find("^Full") or sound_path == "Passthrough") then
+    if status:find("^Full") or status:find("^Passthrough") then
         return GOOD_COLOR
     end
     return style.MUTED_TEXT_COLOR
 end
 
--- Works out where everything goes. Used for drawing and for knowing
--- which row the pointer is over.
---
--- When the current output can take surround formats untouched, a
--- passthrough switch is added below the devices, after a second divider.
+-- The status line: what happens to the sound on its way, and when it's
+-- passed through untouched, what's arriving, like "Passthrough · Dolby
+-- Atmos 7.1".
+local function describe_status(output)
+    local path = info_details.describe_sound_path(output) or ""
+    if path == "Passthrough" then
+        local track = mp.get_property_native("current-tracks/audio")
+        if track then
+            return path .. " · " .. info_details.describe_audio_for_people(track)
+        end
+    end
+    return path
+end
+
+-- Layout -------------------------------------------------------------------
+
+-- Works out where everything goes. Used for drawing and for knowing what
+-- the pointer is over.
 local function calculate_layout()
     local padding = screen.pixels(PADDING)
-    local outputs = audio_output.list()
-    local has_passthrough_switch = passthrough.is_possible(audio_output.current())
+    local current = audio_output.current()
+    local has_switch = passthrough.is_possible(current)
 
-    local header_height = screen.pixels(NAME_SIZE + GAP_BETWEEN_LINES + STATUS_SIZE)
-    local rows_height = #outputs * screen.pixels(ROW_HEIGHT)
-    -- The passthrough switch, and under it a row of chips, one per format,
-    -- each switched on or off by tapping it.
-    local switch_height = 0
-    if has_passthrough_switch then
-        switch_height = screen.pixels(DIVIDER_GAP * 2 + ROW_HEIGHT + CHIP_ROW_HEIGHT)
+    local others = {}
+    for _, output in ipairs(audio_output.list()) do
+        if not output.is_current then
+            table.insert(others, output)
+        end
     end
 
-    -- The rename row, after its own divider, whenever there's an output.
-    local has_rename_row = audio_output.current() ~= nil
-    local rename_height = 0
-    if has_rename_row then
-        rename_height = screen.pixels(DIVIDER_GAP * 2 + ROW_HEIGHT)
-    end
-
-    local height = padding * 2 + header_height + screen.pixels(DIVIDER_GAP * 2)
-        + rows_height + switch_height + rename_height
-
-    -- Wide enough for the format chips, so they're never cut off.
-    local width = screen.pixels(WIDTH)
-    local chip_widths = {}
-    local formats = {}
-    if has_passthrough_switch then
-        formats = passthrough.device_formats(audio_output.current())
-        local needed = padding * 2
-        for index, format in ipairs(formats) do
-            chip_widths[index] = draw.estimate_text_width(
+    -- The chips' widths, so the popup can be wide enough for them.
+    local chips = {}
+    local chips_width = 0
+    if has_switch then
+        for _, format in ipairs(passthrough.device_formats(current)) do
+            local width = draw.estimate_text_width(
                 passthrough.format_name(format),
                 screen.pixels(CHIP_TEXT_SIZE)
             ) + screen.pixels(CHIP_PADDING) * 2
-            needed = needed + chip_widths[index] + screen.pixels(CHIP_GAP)
+            table.insert(chips, { format = format, width = width })
+            chips_width = chips_width + width + screen.pixels(CHIP_GAP)
         end
-        width = math.max(width, needed)
     end
+
+    local text_left_offset = screen.pixels(TEXT_LEFT)
+    local width = math.max(screen.pixels(WIDTH), padding + text_left_offset + chips_width + padding)
     width = math.min(width, screen.width - padding * 2)
+
+    -- Heights, top to bottom.
+    local name_size = screen.pixels(NAME_SIZE)
+    local status_size = screen.pixels(STATUS_SIZE)
+    if editing_text then
+        name_size = name_size + screen.pixels(FIELD_PADDING) * 2
+        status_size = screen.pixels(HINT_SIZE)
+    end
+    local card_height = name_size + screen.pixels(GAP_BELOW_NAME) + status_size
+    local chips_height = 0
+    if has_switch then
+        chips_height = screen.pixels(GAP_ABOVE_CHIPS + CHIP_HEIGHT)
+    end
+    local others_height = 0
+    if #others > 0 then
+        others_height = screen.pixels(GAP_ABOVE_SWITCH_TO + SWITCH_TO_SIZE)
+            + #others * screen.pixels(ROW_HEIGHT)
+    end
+    local height = padding * 2 + card_height + chips_height + others_height
+
     local panel = {
         left = anchor_right - width,
         top = anchor_bottom - height,
@@ -150,11 +190,55 @@ local function calculate_layout()
         bottom = anchor_bottom,
     }
 
-    local divider_y = panel.top + padding + header_height + screen.pixels(DIVIDER_GAP)
-    local rows_top = divider_y + screen.pixels(DIVIDER_GAP)
+    local text_left = panel.left + padding + text_left_offset
+    local card_top = panel.top + padding
 
+    -- The name, or the text field while renaming, and the pencil after it.
+    local name_text = editing_text or (current and current.name) or "No output"
+    local name_width = draw.estimate_text_width(name_text, screen.pixels(NAME_SIZE), true)
+    local name_area = {
+        left = text_left,
+        top = card_top,
+        right = text_left + name_width + screen.pixels(GAP_BEFORE_PENCIL + PENCIL_SIZE),
+        bottom = card_top + name_size,
+    }
+    local field_area = nil
+    if editing_text then
+        field_area = {
+            left = text_left - screen.pixels(FIELD_PADDING),
+            top = card_top,
+            right = panel.right - padding - screen.pixels(SWITCH_WIDTH) - padding,
+            bottom = card_top + name_size,
+        }
+    end
+
+    local switch_area = nil
+    if has_switch then
+        local middle = card_top + name_size / 2
+        switch_area = {
+            left = panel.right - padding - screen.pixels(SWITCH_WIDTH),
+            top = middle - screen.pixels(SWITCH_HEIGHT) / 2,
+            right = panel.right - padding,
+            bottom = middle + screen.pixels(SWITCH_HEIGHT) / 2,
+        }
+    end
+
+    local chips_top = card_top + card_height + screen.pixels(GAP_ABOVE_CHIPS)
+    local chip_left = text_left
+    for _, chip in ipairs(chips) do
+        chip.area = {
+            left = chip_left,
+            top = chips_top,
+            right = chip_left + chip.width,
+            bottom = chips_top + screen.pixels(CHIP_HEIGHT),
+        }
+        chip_left = chip_left + chip.width + screen.pixels(CHIP_GAP)
+    end
+
+    local switch_to_top = card_top + card_height + chips_height + screen.pixels(GAP_ABOVE_SWITCH_TO)
+    local rows_top = switch_to_top + screen.pixels(SWITCH_TO_SIZE)
     local rows = {}
-    for index, output in ipairs(outputs) do
+    for index, output in ipairs(others) do
         local top = rows_top + (index - 1) * screen.pixels(ROW_HEIGHT)
         table.insert(rows, {
             output = output,
@@ -167,256 +251,166 @@ local function calculate_layout()
         })
     end
 
-    local switch = nil
-    if has_passthrough_switch then
-        local switch_divider_y = rows_top + rows_height + screen.pixels(DIVIDER_GAP)
-        local switch_top = switch_divider_y + screen.pixels(DIVIDER_GAP)
-        switch = {
-            divider_y = switch_divider_y,
-            area = {
-                left = panel.left + padding / 2,
-                top = switch_top,
-                right = panel.right - padding / 2,
-                bottom = switch_top + screen.pixels(ROW_HEIGHT),
-            },
-            chips = {},
-        }
+    return {
+        panel = panel,
+        current = current,
+        card_top = card_top,
+        name_size = name_size,
+        text_left = text_left,
+        name_text = name_text,
+        name_width = name_width,
+        name_area = name_area,
+        field_area = field_area,
+        switch_area = switch_area,
+        chips = chips,
+        switch_to_top = switch_to_top,
+        rows = rows,
+    }
+end
 
-        -- The chips, in a row under the switch, lined up with its text.
-        local chip_top = switch.area.bottom
-            + (screen.pixels(CHIP_ROW_HEIGHT) - screen.pixels(CHIP_HEIGHT)) / 2
-        local chip_left = panel.left + padding
-        for index, format in ipairs(formats) do
-            table.insert(switch.chips, {
-                format = format,
-                area = {
-                    left = chip_left,
-                    top = chip_top,
-                    right = chip_left + chip_widths[index],
-                    bottom = chip_top + screen.pixels(CHIP_HEIGHT),
-                },
-            })
-            chip_left = chip_left + chip_widths[index] + screen.pixels(CHIP_GAP)
+-- Drawing ------------------------------------------------------------------
+
+local function add_switch(area, is_on)
+    local color = SWITCH_OFF_COLOR
+    if is_on then
+        color = GOOD_COLOR
+    end
+    local height = area.bottom - area.top
+    canvas:add(draw.rectangle({
+        area = area,
+        color = color,
+        opacity = 1,
+        corner_radius = height / 2,
+    }))
+
+    local knob_radius = height / 2 - screen.pixels(2)
+    local knob_x = area.left + height / 2
+    if is_on then
+        knob_x = area.right - height / 2
+    end
+    canvas:add(draw.circle({
+        x = knob_x,
+        y = (area.top + area.bottom) / 2,
+        radius = knob_radius,
+        color = style.TEXT_COLOR,
+        opacity = 1,
+    }))
+end
+
+local function add_card(layout)
+    local current = layout.current
+    local padding = screen.pixels(PADDING)
+    local name_middle = layout.card_top + layout.name_size / 2
+
+    canvas:add(draw.icon({
+        name = OUTPUT_ICONS[current and current.kind] or "volume",
+        x = layout.panel.left + padding + screen.pixels(CARD_ICON_SIZE) / 2,
+        y = name_middle,
+        size = screen.pixels(CARD_ICON_SIZE),
+        color = style.TEXT_COLOR,
+    }))
+
+    local status_top = layout.card_top + layout.name_size + screen.pixels(GAP_BELOW_NAME)
+
+    if editing_text then
+        -- The text field: a box round the name, with a cursor after it.
+        canvas:add(draw.rectangle({
+            area = layout.field_area,
+            color = style.BACKGROUND_COLOR,
+            opacity = 0,
+            corner_radius = screen.pixels(5),
+            outline = {
+                width = math.max(1, screen.pixels(1)),
+                color = style.TEXT_COLOR,
+                opacity = 0.6,
+            },
+        }))
+        canvas:add(draw.text({
+            x = layout.text_left,
+            y = name_middle,
+            vertical = "middle",
+            text = editing_text,
+            size = screen.pixels(NAME_SIZE),
+            bold = true,
+            color = style.TEXT_COLOR,
+            clip = layout.field_area,
+        }))
+        local cursor_x = layout.text_left + layout.name_width + screen.pixels(1)
+        canvas:add(draw.rectangle({
+            area = {
+                left = cursor_x,
+                top = name_middle - screen.pixels(NAME_SIZE) / 2,
+                right = cursor_x + math.max(1, screen.pixels(1.5)),
+                bottom = name_middle + screen.pixels(NAME_SIZE) / 2,
+            },
+            color = style.TEXT_COLOR,
+            opacity = 1,
+        }))
+
+        local detected = (current and current.detected_name) or ""
+        canvas:add(draw.text({
+            x = layout.text_left,
+            y = status_top,
+            text = "Enter to save · Esc to cancel · empty for " .. detected,
+            size = screen.pixels(HINT_SIZE),
+            color = style.MUTED_TEXT_COLOR,
+        }))
+    else
+        canvas:add(draw.text({
+            x = layout.text_left,
+            y = name_middle,
+            vertical = "middle",
+            text = layout.name_text,
+            size = screen.pixels(NAME_SIZE),
+            bold = true,
+            color = style.TEXT_COLOR,
+        }))
+
+        local pencil_opacity = 0.55
+        if hovered == "name" then
+            pencil_opacity = 1
+        end
+        canvas:add(draw.icon({
+            name = "pencil",
+            x = layout.text_left + layout.name_width
+                + screen.pixels(GAP_BEFORE_PENCIL + PENCIL_SIZE / 2),
+            y = name_middle,
+            size = screen.pixels(PENCIL_SIZE),
+            color = style.TEXT_COLOR,
+            opacity = pencil_opacity,
+        }))
+
+        if current then
+            local status = describe_status(current)
+            canvas:add(draw.text({
+                x = layout.text_left,
+                y = status_top,
+                text = status,
+                size = screen.pixels(STATUS_SIZE),
+                color = status_color(status),
+            }))
         end
     end
 
-    local rename = nil
-    if has_rename_row then
-        local rename_divider_y = rows_top + rows_height + switch_height + screen.pixels(DIVIDER_GAP)
-        local rename_top = rename_divider_y + screen.pixels(DIVIDER_GAP)
-        rename = {
-            divider_y = rename_divider_y,
-            area = {
-                left = panel.left + padding / 2,
-                top = rename_top,
-                right = panel.right - padding / 2,
-                bottom = rename_top + screen.pixels(ROW_HEIGHT),
-            },
-        }
-    end
-
-    return {
-        panel = panel,
-        divider_y = divider_y,
-        rows = rows,
-        switch = switch,
-        rename = rename,
-    }
-end
-
-local function add_header(panel)
-    local current = audio_output.current()
-    if current == nil then
-        return
-    end
-
-    local padding = screen.pixels(PADDING)
-    local left = panel.left + padding
-    local top = panel.top + padding
-    local name_size = screen.pixels(NAME_SIZE)
-    local text_left = left + screen.pixels(HEADER_ICON_COLUMN)
-    local clip = {
-        left = panel.left,
-        top = panel.top,
-        right = panel.right - padding,
-        bottom = panel.bottom,
-    }
-
-    canvas:add(draw.icon({
-        name = OUTPUT_ICONS[current.kind] or "volume",
-        x = left + screen.pixels(HEADER_ICON_COLUMN) / 2 - screen.pixels(4),
-        y = top + (name_size + screen.pixels(GAP_BETWEEN_LINES + STATUS_SIZE)) / 2,
-        size = screen.pixels(HEADER_ICON_SIZE),
-        color = style.TEXT_COLOR,
-    }))
-    canvas:add(draw.text({
-        x = text_left,
-        y = top,
-        text = current.name,
-        size = name_size,
-        bold = true,
-        color = style.TEXT_COLOR,
-        clip = clip,
-    }))
-
-    local sound_path = info_details.describe_sound_path(current) or ""
-    canvas:add(draw.text({
-        x = text_left,
-        y = top + name_size + screen.pixels(GAP_BETWEEN_LINES),
-        text = sound_path,
-        size = screen.pixels(STATUS_SIZE),
-        color = sound_path_color(sound_path),
-        clip = clip,
-    }))
-end
-
-local function add_row(row)
-    local area = row.area
-    local middle_y = (area.top + area.bottom) / 2
-    local padding = screen.pixels(PADDING)
-
-    if row.output.is_current or row.output.mpv_name == hovered_row then
-        canvas:add(draw.rectangle({
-            area = area,
-            color = style.HOVER_COLOR,
-            opacity = style.HOVER_OPACITY / 2,
-            corner_radius = screen.pixels(ROW_CORNER_RADIUS),
-        }))
-    end
-
-    local icon_left = area.left + padding / 2
-    canvas:add(draw.icon({
-        name = OUTPUT_ICONS[row.output.kind] or "volume",
-        x = icon_left + screen.pixels(ROW_ICON_COLUMN) / 2 - screen.pixels(4),
-        y = middle_y,
-        size = screen.pixels(ROW_ICON_SIZE),
-        color = style.MUTED_TEXT_COLOR,
-    }))
-
-    local check_space = screen.pixels(CHECK_SIZE) + padding
-    canvas:add(draw.text({
-        x = icon_left + screen.pixels(ROW_ICON_COLUMN),
-        y = middle_y,
-        vertical = "middle",
-        text = row.output.name,
-        size = screen.pixels(ROW_TEXT_SIZE),
-        color = style.TEXT_COLOR,
-        clip = {
-            left = area.left,
-            top = area.top,
-            right = area.right - check_space,
-            bottom = area.bottom,
-        },
-    }))
-
-    if row.output.is_current then
-        canvas:add(draw.icon({
-            name = "check",
-            x = area.right - padding / 2 - screen.pixels(CHECK_SIZE) / 2,
-            y = middle_y,
-            size = screen.pixels(CHECK_SIZE),
-            color = style.TEXT_COLOR,
-        }))
+    if layout.switch_area then
+        add_switch(layout.switch_area, passthrough.is_on(current))
     end
 end
 
-local function add_divider(panel, y)
-    canvas:add(draw.rectangle({
-        area = {
-            left = panel.left + screen.pixels(PADDING),
-            top = y,
-            right = panel.right - screen.pixels(PADDING),
-            bottom = y + math.max(1, screen.pixels(1)),
-        },
-        color = style.TEXT_COLOR,
-        opacity = DIVIDER_OPACITY,
-    }))
-end
-
--- The rename row: "Rename this output…", for naming what's really on
--- the other end, like a soundbar behind an HDMI extractor.
-local function add_rename_row(panel, rename)
-    add_divider(panel, rename.divider_y)
-
-    local area = rename.area
-    if hovered_row == "rename" then
-        canvas:add(draw.rectangle({
-            area = area,
-            color = style.HOVER_COLOR,
-            opacity = style.HOVER_OPACITY / 2,
-            corner_radius = screen.pixels(ROW_CORNER_RADIUS),
-        }))
-    end
-
-    canvas:add(draw.text({
-        x = area.left + screen.pixels(PADDING) / 2,
-        y = (area.top + area.bottom) / 2,
-        vertical = "middle",
-        text = "Rename this output…",
-        size = screen.pixels(ROW_TEXT_SIZE),
-        color = style.MUTED_TEXT_COLOR,
-    }))
-end
-
--- The passthrough switch: "Passthrough" and the formats the device takes
--- on the left, and whether it's on at the right.
-local function add_passthrough_switch(panel, switch)
-    add_divider(panel, switch.divider_y)
-
-    local area = switch.area
-    local middle_y = (area.top + area.bottom) / 2
-    local padding = screen.pixels(PADDING)
-    local current = audio_output.current()
-    local is_on = passthrough.is_on(current)
-
-    if hovered_row == "passthrough" then
-        canvas:add(draw.rectangle({
-            area = area,
-            color = style.HOVER_COLOR,
-            opacity = style.HOVER_OPACITY / 2,
-            corner_radius = screen.pixels(ROW_CORNER_RADIUS),
-        }))
-    end
-
-    local state = "Off"
-    local state_color = style.MUTED_TEXT_COLOR
-    if is_on then
-        state = "On"
-        state_color = GOOD_COLOR
-    end
-
-    local state_right = area.right - padding / 2
-    canvas:add(draw.text({
-        x = state_right,
-        y = middle_y,
-        align = "right",
-        vertical = "middle",
-        text = state,
-        size = screen.pixels(ROW_TEXT_SIZE),
-        color = state_color,
-    }))
-
-    canvas:add(draw.text({
-        x = area.left + padding / 2,
-        y = middle_y,
-        vertical = "middle",
-        text = "Passthrough",
-        size = screen.pixels(ROW_TEXT_SIZE),
-        color = style.TEXT_COLOR,
-    }))
-
-    -- The format chips: bright with an outline when that format is passed
-    -- through, dim when it's switched off and decoded instead. While
-    -- passthrough itself is off, they're all dim.
-    for _, chip in ipairs(switch.chips) do
-        local is_passed = is_on and not passthrough.is_format_off(current, chip.format)
+-- The format chips: bright with an outline when that format is passed
+-- through, dim when it's switched off and decoded instead. While
+-- passthrough itself is off, they're all dim.
+local function add_chips(layout)
+    local is_on = passthrough.is_on(layout.current)
+    for _, chip in ipairs(layout.chips) do
+        local is_passed = is_on and not passthrough.is_format_off(layout.current, chip.format)
         local text_color = style.MUTED_TEXT_COLOR
         local outline_opacity = 0.2
         if is_passed then
             text_color = style.TEXT_COLOR
             outline_opacity = 0.55
         end
-        if hovered_row == "chip:" .. chip.format then
+        if hovered == "chip:" .. chip.format then
             outline_opacity = outline_opacity + 0.25
         end
 
@@ -443,6 +437,50 @@ local function add_passthrough_switch(panel, switch)
     end
 end
 
+local function add_other_outputs(layout)
+    if #layout.rows == 0 then
+        return
+    end
+    local padding = screen.pixels(PADDING)
+
+    canvas:add(draw.text({
+        x = layout.panel.left + padding,
+        y = layout.switch_to_top,
+        vertical = "bottom",
+        text = "Switch to",
+        size = screen.pixels(SWITCH_TO_SIZE),
+        color = style.MUTED_TEXT_COLOR,
+    }))
+
+    for _, row in ipairs(layout.rows) do
+        local area = row.area
+        local middle_y = (area.top + area.bottom) / 2
+        if hovered == row.output.mpv_name then
+            canvas:add(draw.rectangle({
+                area = area,
+                color = style.HOVER_COLOR,
+                opacity = style.HOVER_OPACITY / 2,
+                corner_radius = screen.pixels(ROW_CORNER_RADIUS),
+            }))
+        end
+        canvas:add(draw.icon({
+            name = OUTPUT_ICONS[row.output.kind] or "volume",
+            x = layout.panel.left + padding + screen.pixels(CARD_ICON_SIZE) / 2,
+            y = middle_y,
+            size = screen.pixels(ROW_ICON_SIZE),
+            color = style.MUTED_TEXT_COLOR,
+        }))
+        canvas:add(draw.text({
+            x = layout.text_left,
+            y = middle_y,
+            vertical = "middle",
+            text = row.output.name,
+            size = screen.pixels(ROW_TEXT_SIZE),
+            color = style.TEXT_COLOR,
+        }))
+    end
+end
+
 local function render()
     if not is_open or not screen.is_ready() then
         canvas:clear()
@@ -451,109 +489,150 @@ local function render()
 
     draw.set_overall_opacity(1)
     local layout = calculate_layout()
-    local panel = layout.panel
 
     canvas:add(draw.rectangle({
-        area = panel,
+        area = layout.panel,
         color = style.BACKGROUND_COLOR,
         opacity = PANEL_OPACITY,
         corner_radius = screen.pixels(CORNER_RADIUS),
     }))
-
-    add_header(panel)
-
-    add_divider(panel, layout.divider_y)
-
-    for _, row in ipairs(layout.rows) do
-        add_row(row)
-    end
-
-    if layout.switch then
-        add_passthrough_switch(panel, layout.switch)
-    end
-    if layout.rename then
-        add_rename_row(panel, layout.rename)
-    end
+    add_card(layout)
+    add_chips(layout)
+    add_other_outputs(layout)
 
     canvas:show(screen.width, screen.height)
 end
 
+-- Renaming -----------------------------------------------------------------
+
+local EDIT_KEYS = { "any_unicode", "BS", "ENTER", "KP_ENTER", "ESC", "Ctrl+u" }
+
+local function stop_editing()
+    for _, key in ipairs(EDIT_KEYS) do
+        mp.remove_key_binding("output-popup-edit-" .. key)
+    end
+    editing_text = nil
+    mp.add_forced_key_binding("ESC", "output-popup-close", function()
+        output_popup.close()
+    end)
+    redraw.request()
+end
+
+-- Saves the typed name for the output in use. An empty name, or the
+-- detected one, goes back to the detected name.
+local function save_name()
+    local output = audio_output.current()
+    if output and editing_text then
+        local name = editing_text:match("^%s*(.-)%s*$")
+        if name == "" or name == output.detected_name then
+            name = nil
+        end
+        device_settings.set(output, "name", name)
+    end
+    stop_editing()
+    audio_output.refresh()
+end
+
+-- Removes the last character, which may be more than one byte in UTF-8.
+local function without_last_character(text)
+    return (text:gsub("[%z\1-\127\194-\244][\128-\191]*$", ""))
+end
+
+local function start_editing()
+    local output = audio_output.current()
+    if output == nil then
+        return
+    end
+    editing_text = output.name or ""
+
+    -- While renaming, the keyboard types into the name: letters are added,
+    -- Backspace removes one, Ctrl+U clears it, Enter saves, Esc cancels.
+    mp.remove_key_binding("output-popup-close")
+    mp.add_forced_key_binding("any_unicode", "output-popup-edit-any_unicode", function(event)
+        if event.event ~= "up" and event.key_text and editing_text then
+            editing_text = editing_text .. event.key_text
+            redraw.request()
+        end
+    end, { complex = true, repeatable = true })
+    mp.add_forced_key_binding("BS", "output-popup-edit-BS", function()
+        if editing_text then
+            editing_text = without_last_character(editing_text)
+            redraw.request()
+        end
+    end, { repeatable = true })
+    mp.add_forced_key_binding("Ctrl+u", "output-popup-edit-Ctrl+u", function()
+        editing_text = ""
+        redraw.request()
+    end)
+    mp.add_forced_key_binding("ENTER", "output-popup-edit-ENTER", save_name)
+    mp.add_forced_key_binding("KP_ENTER", "output-popup-edit-KP_ENTER", save_name)
+    mp.add_forced_key_binding("ESC", "output-popup-edit-ESC", stop_editing)
+
+    redraw.request()
+end
+
+-- Opening and closing ------------------------------------------------------
+
 local clicks
 
-local function close()
+function output_popup.close()
     if not is_open then
         return
     end
+    if editing_text then
+        save_name()
+    end
     is_open = false
-    hovered_row = nil
+    hovered = nil
     clicks:update(false)
     mp.remove_key_binding("output-popup-close")
     redraw.request()
 end
 
--- Asks for a new name for the output in use, in mpv's own text box (the
--- same kind as its console), and remembers it for that device. Leaving it
--- empty goes back to the detected name.
-local function ask_for_name()
-    local output = audio_output.current()
-    if output == nil then
-        return
-    end
-
-    local detected_name = output.detected_name or output.name
-    input.get({
-        prompt = "Name for this output (empty for " .. detected_name .. "): ",
-        default_text = output.name,
-        submit = function(text)
-            local name = (text or ""):match("^%s*(.-)%s*$")
-            if name == "" or name == output.detected_name then
-                name = nil
-            end
-            device_settings.set(output, "name", name)
-            input.terminate()
-            audio_output.refresh()
-            redraw.request()
-        end,
-    })
+local function close()
+    output_popup.close()
 end
 
--- While open, the popup takes every click. A click on an output switches
--- to it, a click elsewhere in the popup does nothing, and a click
--- anywhere else closes it, including on the output chip, which makes the
--- chip open and close it.
+-- While open, the popup takes every click: the name starts renaming, the
+-- switch and chips change passthrough, another output switches to it, and
+-- a click outside closes the popup (saving a name being typed).
 local function on_click()
     local layout = calculate_layout()
 
-    if layout.rename and pointer.is_inside(layout.rename.area) then
+    if editing_text then
+        if layout.field_area and pointer.is_inside(layout.field_area) then
+            return
+        end
+        save_name()
+        if pointer.is_inside(layout.panel) then
+            return
+        end
         close()
-        ask_for_name()
         return
     end
 
-    -- A format chip switches that format on or off, keeping the popup
-    -- open, so the change can be seen.
-    if layout.switch then
-        for _, chip in ipairs(layout.switch.chips) do
-            if pointer.is_inside(chip.area) then
-                passthrough.toggle_format(chip.format)
-                redraw.request()
-                return
-            end
-        end
+    if pointer.is_inside(layout.name_area) then
+        start_editing()
+        return
     end
 
-    -- The switch stays open after a click, so the change can be seen.
-    if layout.switch and pointer.is_inside(layout.switch.area) then
+    if layout.switch_area and pointer.is_inside(layout.switch_area) then
         passthrough.toggle()
         redraw.request()
         return
     end
 
+    for _, chip in ipairs(layout.chips) do
+        if pointer.is_inside(chip.area) then
+            passthrough.toggle_format(chip.format)
+            redraw.request()
+            return
+        end
+    end
+
     for _, row in ipairs(layout.rows) do
         if pointer.is_inside(row.area) then
-            if not row.output.is_current then
-                audio_output.switch_to(row.output.mpv_name)
-            end
+            audio_output.switch_to(row.output.mpv_name)
             close()
             return
         end
@@ -591,8 +670,8 @@ function output_popup.toggle()
     end
 end
 
--- Mouse movement happens constantly, so only redraw when the row under
--- the pointer changes.
+-- Mouse movement happens constantly, so only redraw when what's under the
+-- pointer changes.
 local function on_pointer_moved()
     if not is_open then
         return
@@ -600,27 +679,22 @@ local function on_pointer_moved()
 
     local layout = calculate_layout()
     local now_hovered = nil
+    if not editing_text and pointer.is_inside(layout.name_area) then
+        now_hovered = "name"
+    end
+    for _, chip in ipairs(layout.chips) do
+        if pointer.is_inside(chip.area) then
+            now_hovered = "chip:" .. chip.format
+        end
+    end
     for _, row in ipairs(layout.rows) do
         if pointer.is_inside(row.area) then
             now_hovered = row.output.mpv_name
         end
     end
-    if layout.switch and pointer.is_inside(layout.switch.area) then
-        now_hovered = "passthrough"
-    end
-    if layout.switch then
-        for _, chip in ipairs(layout.switch.chips) do
-            if pointer.is_inside(chip.area) then
-                now_hovered = "chip:" .. chip.format
-            end
-        end
-    end
-    if layout.rename and pointer.is_inside(layout.rename.area) then
-        now_hovered = "rename"
-    end
 
-    if now_hovered ~= hovered_row then
-        hovered_row = now_hovered
+    if now_hovered ~= hovered then
+        hovered = now_hovered
         redraw.request()
     end
 end
@@ -632,8 +706,8 @@ function output_popup.start()
     pointer.on_move(on_pointer_moved)
     audio_output.on_change(redraw.request)
 
-    -- mpv's audio format changes after switching outputs, which can
-    -- change the status line, so redraw when it does.
+    -- mpv's audio format changes after switching outputs or tracks, which
+    -- can change the status line, so redraw when it does.
     mp.observe_property("audio-out-params", "native", function()
         if is_open then
             redraw.request()

@@ -80,12 +80,16 @@ local function labels_for_current_file()
 
     -- Sound is one badge naming the format with its channels, the way a
     -- soundbar would: "Dolby Digital 5.1", "DTS-HD MA 5.1", "Opus
-    -- Stereo". Atmos gets its own badge in front: "Dolby Atmos", then
-    -- "Dolby TrueHD 7.1".
+    -- Stereo". Atmos and DTS:X get their own badge in front: "Dolby
+    -- Atmos", then "Dolby TrueHD 7.1", or "DTS:X", then "DTS-HD MA 7.1",
+    -- with "IMAX Enhanced" too for its version of DTS:X.
     local sound = info_details.sound_summary()
     if sound then
-        if sound.is_atmos then
-            table.insert(labels, "Dolby Atmos")
+        if sound.immersive_format then
+            table.insert(labels, sound.immersive_format)
+            if sound.is_imax_enhanced then
+                table.insert(labels, "IMAX Enhanced")
+            end
             table.insert(labels, sound.format_with_channels or sound.for_people)
         else
             table.insert(labels, sound.for_people)

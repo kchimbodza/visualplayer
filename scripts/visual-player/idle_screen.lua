@@ -91,8 +91,8 @@ local GROUPS = {
         heading = "Audio",
         icon = "volume",
         formats = {
-            "Dolby Atmos", "Dolby TrueHD", "Dolby Digital Plus", "Dolby Digital",
-            "DTS-HD", "DTS", "7.1 Surround",
+            "Dolby Atmos", "DTS:X", "Dolby TrueHD", "Dolby Digital Plus",
+            "Dolby Digital", "DTS-HD", "DTS", "7.1 Surround",
         },
     },
 }

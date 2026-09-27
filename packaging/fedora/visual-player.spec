@@ -4,7 +4,7 @@
 # prepares the source archive rpmbuild needs first.
 
 Name:           visual-player
-Version:        0.6.10
+Version:        0.6.12
 Release:        1%{?dist}
 Summary:        Media player for HDR video and Dolby Atmos audio, built on mpv
 
@@ -55,6 +55,17 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
+* Sun Sep 27 2026 myviewsontech - 0.6.12-1
+- DTS:X is named like Dolby Atmos, as "DTS:X 7.1" on the audio chip, and
+  as a "DTS:X" badge before "DTS-HD MA 7.1", with an "IMAX Enhanced"
+  badge for its version of DTS:X
+- Passthrough format chips in Dolby-first order
+
+* Sun Sep 27 2026 myviewsontech - 0.6.11-1
+- A more compact output popup: a card for the output in use, with its
+  passthrough switch and formats, then the other outputs
+- Rename an output in place, by clicking its name
+
 * Sun Sep 27 2026 myviewsontech - 0.6.10-1
 - Settings are always saved in ~/.config/visual-player/, rather than in
   whatever folder Visual Player was started from, so choices like an

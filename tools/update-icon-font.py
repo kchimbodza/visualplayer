@@ -51,6 +51,8 @@ NEEDED_ICONS = [
     "settings",
     # Idle screen
     "cloud-upload",
+    # Output popup: renaming an output
+    "pencil",
     "volume",
     "volume-2",
     "volume-3",

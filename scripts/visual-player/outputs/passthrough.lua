@@ -94,8 +94,9 @@ function passthrough.is_on(output)
     return chosen == true
 end
 
--- Listed best first, rather than in the device's own order.
-local FORMAT_ORDER = { "truehd", "eac3", "dts-hd", "ac3", "dts" }
+-- Listed Dolby first, then DTS, each best first, rather than in the
+-- device's own order: TrueHD, E-AC-3, AC-3, DTS-HD, DTS.
+local FORMAT_ORDER = { "truehd", "eac3", "ac3", "dts-hd", "dts" }
 
 -- The formats the device lists, best first.
 function passthrough.device_formats(output)

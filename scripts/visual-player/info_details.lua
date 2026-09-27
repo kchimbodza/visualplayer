@@ -339,12 +339,41 @@ end
 
 -- The codec's full name for the headline. For DTS, the profile says which
 -- kind, such as "DTS-HD MA", which matters more than plain "DTS".
+-- The name of a track's format, like "Dolby Digital" or "DTS-HD MA".
+-- For DTS, mpv's profile says which kind, like "DTS-HD MA", with any
+-- DTS:X on top after a plus: "DTS-HD MA + DTS:X". The DTS:X part is left
+-- out here, since it's named on its own, the way Atmos is (Phase 6).
 local function describe_audio_codec(track)
     local profile = track["codec-profile"] or ""
     if track.codec == "dts" and profile ~= "" then
-        return profile
+        local base = profile:gsub("%s*%+%s*DTS:X.*$", "")
+        if base ~= "" then
+            return base
+        end
     end
     return AUDIO_CODEC_NAMES[track.codec] or (track.codec or ""):upper()
+end
+
+-- True if a DTS track carries DTS:X, which mpv reports in the profile, as
+-- "DTS-HD MA + DTS:X", or "... DTS:X IMAX" for IMAX Enhanced.
+local function has_dts_x(track)
+    return (track["codec-profile"] or ""):find("DTS:X") ~= nil
+end
+
+local function is_imax_enhanced(track)
+    return (track["codec-profile"] or ""):find("DTS:X IMAX") ~= nil
+end
+
+-- The immersive format a track carries on top of its base format, named
+-- the way people know it: "Dolby Atmos" or "DTS:X". Nil for other tracks.
+local function describe_immersive_format(track)
+    if has_atmos(track) then
+        return "Dolby Atmos"
+    end
+    if has_dts_x(track) then
+        return "DTS:X"
+    end
+    return nil
 end
 
 -- Names any audio track the way a soundbar's display or a streaming app
@@ -361,8 +390,8 @@ function info_details.describe_audio_for_people(track)
     local channels = describe_channels(track)
 
     local name = BRANDED_AUDIO_NAMES[track.codec]
-    if has_atmos(track) then
-        name = "Dolby Atmos"
+    if describe_immersive_format(track) then
+        name = describe_immersive_format(track)
     elseif track.codec == "dts" then
         name = describe_audio_codec(track)
     end
@@ -393,10 +422,7 @@ function info_details.describe_audio_format(track)
 
     -- The channels belong with the format name, like "Dolby Atmos 5.1",
     -- so they're joined with a space rather than " · ".
-    local headline = codec
-    if has_atmos(track) then
-        headline = "Dolby Atmos"
-    end
+    local headline = describe_immersive_format(track) or codec
     if channels then
         headline = headline .. " " .. channels
     end
@@ -447,6 +473,8 @@ function info_details.sound_summary()
 
     return {
         is_atmos = has_atmos(track),
+        immersive_format = describe_immersive_format(track),
+        is_imax_enhanced = is_imax_enhanced(track),
         codec = codec,
         brand = brand,
         format_with_channels = format_with_channels,
@@ -488,10 +516,7 @@ function info_details.audio()
 
     -- The channels belong with the format name, like "Dolby Atmos 5.1",
     -- so they're joined with a space rather than " · ".
-    local headline = codec
-    if has_atmos(track) then
-        headline = "Dolby Atmos"
-    end
+    local headline = describe_immersive_format(track) or codec
     if channels then
         headline = headline .. " " .. channels
     end
