@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" width="960" height="430" role="img" aria-labelledby="t d">
+  <title id="t">Visual Player playback pipeline</title>
+  <desc id="d">The visualplayer launcher starts the system mpv (0.41 or newer) with Visual Player's config, then personal settings. mpv owns the Wayland window and decodes in hardware (Vulkan on Nobara, VA-API on Omarchy). Visual Player's interface is a set of Lua scripts inside mpv that read mpv properties and system facts (pw-dump, ALSA ELD reports, DRM EDID) and draw on mpv's on-screen display. Video goes through mpv's gpu-next renderer with a colour hint to the compositor: real HDR on an HDR screen, tone mapped on an SDR screen. Audio: when passthrough is on for the output (decided at startup), mpv sends the bitstream straight to the ALSA HDMI port so a receiver or soundbar decodes Atmos, and formats switched off are decoded to PCM on that port; otherwise mpv decodes to PCM and plays through PipeWire, and any downmix is reported.</desc>
+  <style>
+    :root { --ink:#1f2937; --sub:#57606a; --line:#d0d7de; --card:#ffffff; --on:#d97706; --tint:#fff7ed; --group:#f6f8fa; --ok:#1a7f37; }
+    @media (prefers-color-scheme: dark) {
+      :root { --ink:#e6edf3; --sub:#9198a1; --line:#3d444d; --card:#161b22; --on:#f59e0b; --tint:#2a1f0e; --group:#0d1117; --ok:#3fb950; }
+    }
+    text { font-family: Inter, "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; }
+    .lane  { font-size:12px; font-weight:700; fill:var(--sub); letter-spacing:.06em; }
+    .title { font-size:13.5px; font-weight:700; fill:var(--ink); text-anchor:middle; }
+    .sub   { font-size:10.5px; fill:var(--sub); text-anchor:middle; }
+    .ok    { font-size:11px; font-weight:600; fill:var(--ok); text-anchor:middle; }
+    .lbl   { font-size:10.5px; fill:var(--sub); }
+    .node  { fill:var(--card); stroke:var(--line); stroke-width:1.5; }
+    .hot   { fill:var(--tint); stroke:var(--on); stroke-width:1.5; }
+    .group { fill:var(--group); stroke:var(--line); stroke-width:1.5; stroke-dasharray:5 4; }
+    .wire  { stroke:var(--line); stroke-width:1.5; fill:none; }
+    .flow  { stroke:var(--on); stroke-width:2; fill:none; stroke-dasharray:3 11; animation: dash 1.1s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset:-14; } }
+    .head  { fill:var(--line); }
+    .dot   { fill:var(--on); }
+    .v { animation: mv 5s infinite ease-in-out; }
+    .a { animation: ma 6s infinite ease-in-out; }
+    @keyframes mv {
+      0%,8%    { transform:translate(392px,170px); }
+      38%,48%  { transform:translate(505px,170px); }
+      80%,100% { transform:translate(632px,170px); }
+    }
+    @keyframes ma {
+      0%,8%    { transform:translate(392px,335px); }
+      34%,44%  { transform:translate(505px,335px); }
+      60%      { transform:translate(612px,335px); }
+      70%      { transform:translate(612px,302px); }
+      84%,100% { transform:translate(632px,302px); }
+    }
+    @media (prefers-reduced-motion: reduce) { .flow, .v, .a { animation:none; } .v, .a { display:none; } }
+  </style>
+  <defs>
+    <marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head" d="M0 0 L10 5 L0 10z"/></marker>
+  </defs>
+
+  <!-- Interface layer -->
+  <rect class="group" x="210" y="18" width="500" height="88" rx="12"/>
+  <text class="title" x="460" y="46">Visual Player interface (Lua scripts inside mpv)</text>
+  <text class="sub" x="460" y="65">controls, info panel, output popup, badges, menus, settings</text>
+  <text class="sub" x="460" y="81">drawn on mpv's on-screen display, so the window stays mpv's own</text>
+  <rect class="node" x="740" y="18" width="200" height="88" rx="10"/>
+  <text class="title" x="840" y="46">System facts</text>
+  <text class="sub" x="840" y="65">pw-dump (PipeWire outputs)</text>
+  <text class="sub" x="840" y="81">ALSA ELD · DRM EDID</text>
+  <path class="wire" d="M740 62 H712" marker-end="url(#h)"/>
+  <path class="wire" d="M295 106 V148" marker-end="url(#h)"/>
+  <text class="lbl" x="287" y="124" text-anchor="end">reads properties,</text>
+  <text class="lbl" x="287" y="138" text-anchor="end">draws the interface</text>
+
+  <!-- Start -->
+  <rect class="node" x="20" y="118" width="160" height="80" rx="10"/>
+  <text class="title" x="100" y="146">visualplayer</text>
+  <text class="sub" x="100" y="164">launcher: defaults, then</text>
+  <text class="sub" x="100" y="179">~/.config, one window</text>
+  <rect class="node" x="20" y="256" width="160" height="72" rx="10"/>
+  <text class="title" x="100" y="286">Video file or URL</text>
+  <text class="sub" x="100" y="304">from Files or a terminal</text>
+  <path class="wire" d="M180 158 H208" marker-end="url(#h)"/>
+  <path class="wire" d="M180 292 H208" marker-end="url(#h)"/>
+
+  <!-- mpv -->
+  <rect class="hot" x="210" y="150" width="170" height="230" rx="12"/>
+  <text class="title" x="295" y="240">mpv 0.41+</text>
+  <text class="sub" x="295" y="258">(the system's own)</text>
+  <text class="sub" x="295" y="280">owns the Wayland window</text>
+  <text class="sub" x="295" y="296">hardware decoding:</text>
+  <text class="sub" x="295" y="311">Vulkan · VA-API</text>
+
+  <!-- Video lane -->
+  <text class="lane" x="420" y="128">VIDEO</text>
+  <rect class="node" x="420" y="140" width="170" height="60" rx="10"/>
+  <text class="title" x="505" y="166">gpu-next renderer</text>
+  <text class="sub" x="505" y="184">colour hint to compositor</text>
+  <rect class="node" x="640" y="132" width="300" height="76" rx="10"/>
+  <text class="title" x="790" y="156">Screen</text>
+  <text class="ok" x="790" y="175">HDR screen: real HDR (PQ)</text>
+  <text class="sub" x="790" y="194">SDR screen: tone mapped, labelled as normal</text>
+  <path class="wire" d="M380 170 H418" marker-end="url(#h)"/>
+  <path class="wire" d="M590 170 H638" marker-end="url(#h)"/>
+  <path class="flow" d="M380 170 H418"/>
+  <path class="flow" d="M590 170 H638"/>
+
+  <!-- Audio lane -->
+  <text class="lane" x="420" y="292">AUDIO</text>
+  <rect class="node" x="420" y="304" width="170" height="62" rx="10"/>
+  <text class="title" x="505" y="330">Passthrough on?</text>
+  <text class="sub" x="505" y="348">for this output, set at startup</text>
+  <rect class="node" x="640" y="262" width="300" height="74" rx="10"/>
+  <text class="title" x="790" y="290">Direct ALSA HDMI port</text>
+  <text class="sub" x="790" y="311">TrueHD / E-AC-3 bitstream: soundbar shows Atmos</text>
+  <text class="sub" x="790" y="325">formats switched off: decoded to PCM here</text>
+  <rect class="node" x="640" y="346" width="300" height="62" rx="10"/>
+  <text class="title" x="790" y="371">PipeWire</text>
+  <text class="sub" x="790" y="389">decoded PCM, any downmix reported</text>
+  <path class="wire" d="M380 335 H418" marker-end="url(#h)"/>
+  <path class="wire" d="M590 335 H612 V302 H638" marker-end="url(#h)"/>
+  <path class="wire" d="M612 335 V377 H638" marker-end="url(#h)"/>
+  <path class="flow" d="M380 335 H418"/>
+  <path class="flow" d="M590 335 H612 V302 H638"/>
+  <text class="lbl" x="596" y="292">yes</text>
+  <text class="lbl" x="596" y="396">no</text>
+
+  <circle class="dot v" cx="0" cy="0" r="5"/>
+  <circle class="dot a" cx="0" cy="0" r="5"/>
+</svg>
